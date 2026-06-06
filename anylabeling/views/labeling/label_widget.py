@@ -139,7 +139,7 @@ class WslDirectoryPicker(QtWidgets.QDialog):
     browser using os.listdir for lazy directory loading.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, distro_paths, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Select WSL Directory"))
         self.setMinimumSize(500, 400)
@@ -173,18 +173,11 @@ class WslDirectoryPicker(QtWidgets.QDialog):
         self._selected_path = None
         self._loaded = set()
 
-        self._build_tree()
+        self._build_tree(distro_paths)
 
-    def _build_tree(self):
-        wsl_root = r"\\wsl.localhost"
-        if not osp.isdir(wsl_root):
-            return
-        try:
-            distros = sorted(os.listdir(wsl_root))
-        except OSError:
-            return
-        for name in distros:
-            distro_path = osp.join(wsl_root, name)
+    def _build_tree(self, distro_paths):
+        for distro_path in distro_paths:
+            name = osp.basename(distro_path)
             if not osp.isdir(distro_path):
                 continue
             item = QtWidgets.QTreeWidgetItem([name])
@@ -231,8 +224,8 @@ class WslDirectoryPicker(QtWidgets.QDialog):
             item.setExpanded(True)
 
     @staticmethod
-    def get_directory(parent=None):
-        dialog = WslDirectoryPicker(parent)
+    def get_directory(distro_paths, parent=None):
+        dialog = WslDirectoryPicker(distro_paths, parent)
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             return dialog._selected_path
         return None
@@ -6377,11 +6370,13 @@ class LabelingWidget(LabelDialog):
                     timeout=5,
                 )
                 raw = output.stdout.decode("utf-16-le", errors="replace")
-                has_wsl = any(
-                    line.strip().rstrip("\0")
-                    for line in raw.strip().splitlines()
-                )
-                if has_wsl:
+                distro_paths = []
+                for line in raw.strip().splitlines():
+                    name = line.strip().rstrip("\0")
+                    if not name:
+                        continue
+                    distro_paths.append(rf"\\wsl.localhost\{name}")
+                if distro_paths:
                     msg = QMessageBox(self)
                     msg.setWindowTitle("Select Folder Location")
                     msg.setText("Choose where to browse for folders:")
@@ -6395,7 +6390,7 @@ class LabelingWidget(LabelDialog):
                     msg.exec()
 
                     if msg.clickedButton() == btn_wsl:
-                        target_dir_path = WslDirectoryPicker.get_directory(self)
+                        target_dir_path = WslDirectoryPicker.get_directory(distro_paths, self)
                         if target_dir_path:
                             self.import_image_folder(target_dir_path)
                         return
