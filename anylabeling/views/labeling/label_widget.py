@@ -6,6 +6,7 @@ import os
 import os.path as osp
 import re
 import shutil
+import subprocess
 from typing import Optional
 
 import cv2
@@ -130,39 +131,73 @@ def _create_file_status_icon(color):
     return QtGui.QIcon(pixmap)
 
 
-def _get_wsl_directory(start_path, parent=None):
-    dialog = QtWidgets.QDialog(parent)
-    dialog.setWindowTitle("Select WSL Directory")
-    dialog.setMinimumSize(500, 400)
+class WslDirectoryPicker(QtWidgets.QDialog):
+    """Directory picker for WSL UNC paths (\\wsl.localhost\<distro>\...).
 
-    layout = QVBoxLayout(dialog)
-    path_label = QLabel(start_path)
-    path_label.setWordWrap(True)
-    layout.addWidget(path_label)
+    Qt's QFileDialog cannot navigate to WSL UNC paths on Windows,
+    but Python's os.listdir can. This dialog provides a tree-based
+    browser using os.listdir for lazy directory loading.
+    """
 
-    tree = QtWidgets.QTreeWidget()
-    tree.setHeaderHidden(True)
-    tree.setRootIsDecorated(True)
-    layout.addWidget(tree)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Select WSL Directory"))
+        self.setMinimumSize(500, 400)
 
-    btn_layout = QHBoxLayout()
-    select_btn = QPushButton("Select Folder")
-    select_btn.setEnabled(False)
-    cancel_btn = QPushButton("Cancel")
-    btn_layout.addStretch()
-    btn_layout.addWidget(select_btn)
-    btn_layout.addWidget(cancel_btn)
-    layout.addLayout(btn_layout)
+        layout = QVBoxLayout(self)
+        self._path_label = QLabel()
+        self._path_label.setWordWrap(True)
+        layout.addWidget(self._path_label)
 
-    select_btn.clicked.connect(dialog.accept)
-    cancel_btn.clicked.connect(dialog.reject)
+        self._tree = QtWidgets.QTreeWidget()
+        self._tree.setHeaderHidden(True)
+        self._tree.setRootIsDecorated(True)
+        layout.addWidget(self._tree)
 
-    selected_path = [start_path]
+        btn_layout = QHBoxLayout()
+        self._select_btn = QPushButton(self.tr("Select Folder"))
+        self._select_btn.setEnabled(False)
+        cancel_btn = QPushButton(self.tr("Cancel"))
+        btn_layout.addStretch()
+        btn_layout.addWidget(self._select_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
 
-    def populate_children(item, path):
+        self._select_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+        self._tree.itemExpanded.connect(self._on_expanded)
+        self._tree.currentItemChanged.connect(self._on_current_changed)
+        self._tree.itemDoubleClicked.connect(self._on_double_clicked)
+
+        self._selected_path = None
+        self._loaded = set()
+
+        self._build_tree()
+
+    def _build_tree(self):
+        wsl_root = r"\\wsl.localhost"
+        if not osp.isdir(wsl_root):
+            return
+        try:
+            distros = sorted(os.listdir(wsl_root))
+        except OSError:
+            return
+        for name in distros:
+            distro_path = osp.join(wsl_root, name)
+            if not osp.isdir(distro_path):
+                continue
+            item = QtWidgets.QTreeWidgetItem([name])
+            item.setData(0, Qt.ItemDataRole.UserRole, distro_path)
+            item.setChildIndicatorPolicy(
+                QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
+            )
+            self._tree.addTopLevelItem(item)
+
+    def _populate_children(self, item, path):
         try:
             entries = sorted(os.listdir(path))
-        except PermissionError:
+        except OSError:
             return
         for entry in entries:
             full_path = osp.join(path, entry)
@@ -174,41 +209,33 @@ def _get_wsl_directory(start_path, parent=None):
                 )
                 item.addChild(child)
 
-    def on_expanded(item):
+    def _on_expanded(self, item):
         path = item.data(0, Qt.ItemDataRole.UserRole)
-        if not path:
+        if not path or path in self._loaded:
             return
         item.takeChildren()
-        populate_children(item, path)
+        self._populate_children(item, path)
+        self._loaded.add(path)
 
-    def on_current_changed(current, _previous):
+    def _on_current_changed(self, current, _previous):
         if current:
             path = current.data(0, Qt.ItemDataRole.UserRole)
-            selected_path[0] = path
-            path_label.setText(path)
-            select_btn.setEnabled(True)
+            self._selected_path = path
+            self._path_label.setText(path)
+            self._select_btn.setEnabled(True)
 
-    def on_item_double_clicked(item, _column):
+    def _on_double_clicked(self, item, _column):
         path = item.data(0, Qt.ItemDataRole.UserRole)
-        if path and osp.isdir(path):
-            on_expanded(item)
+        if path and osp.isdir(path) and path not in self._loaded:
+            self._on_expanded(item)
             item.setExpanded(True)
 
-    tree.itemExpanded.connect(on_expanded)
-    tree.currentItemChanged.connect(on_current_changed)
-    tree.itemDoubleClicked.connect(on_item_double_clicked)
-
-    root_item = QtWidgets.QTreeWidgetItem([start_path])
-    root_item.setData(0, Qt.ItemDataRole.UserRole, start_path)
-    root_item.setChildIndicatorPolicy(
-        QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
-    )
-    tree.addTopLevelItem(root_item)
-    root_item.setExpanded(True)
-
-    if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-        return selected_path[0]
-    return None
+    @staticmethod
+    def get_directory(parent=None):
+        dialog = WslDirectoryPicker(parent)
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            return dialog._selected_path
+        return None
 
 
 class LabelingWidget(LabelDialog):
@@ -6334,8 +6361,6 @@ class LabelingWidget(LabelDialog):
         if not self.may_continue():
             return
 
-        import subprocess
-
         default_open_dir_path = dirpath if dirpath else "."
         if self.last_open_dir and osp.exists(self.last_open_dir):
             default_open_dir_path = self.last_open_dir
@@ -6344,7 +6369,6 @@ class LabelingWidget(LabelDialog):
                 osp.dirname(self.filename) if self.filename else "."
             )
 
-        wsl_homes = []
         if os.name == "nt":
             try:
                 output = subprocess.run(
@@ -6353,37 +6377,30 @@ class LabelingWidget(LabelDialog):
                     timeout=5,
                 )
                 raw = output.stdout.decode("utf-16-le", errors="replace")
-                for line in raw.strip().splitlines():
-                    name = line.strip().rstrip("\0")
-                    if not name:
-                        continue
-                    home = rf"\\wsl.localhost\{name}\home"
-                    if osp.isdir(home):
-                        for user_dir in os.listdir(home):
-                            user_home = osp.join(home, user_dir)
-                            if osp.isdir(user_home):
-                                wsl_homes.append(user_home)
+                has_wsl = any(
+                    line.strip().rstrip("\0")
+                    for line in raw.strip().splitlines()
+                )
+                if has_wsl:
+                    msg = QMessageBox(self)
+                    msg.setWindowTitle("Select Folder Location")
+                    msg.setText("Choose where to browse for folders:")
+                    btn_win = msg.addButton(
+                        "Windows", QMessageBox.ButtonRole.ActionRole
+                    )
+                    btn_wsl = msg.addButton(
+                        "WSL (Linux)", QMessageBox.ButtonRole.ActionRole
+                    )
+                    msg.setDefaultButton(btn_wsl)
+                    msg.exec()
+
+                    if msg.clickedButton() == btn_wsl:
+                        target_dir_path = WslDirectoryPicker.get_directory(self)
+                        if target_dir_path:
+                            self.import_image_folder(target_dir_path)
+                        return
             except Exception:
                 pass
-
-        if wsl_homes:
-            msg = QMessageBox(self)
-            msg.setWindowTitle("Select Folder Location")
-            msg.setText("Choose where to browse for folders:")
-            btn_win = msg.addButton(
-                "Windows", QMessageBox.ButtonRole.ActionRole
-            )
-            btn_wsl = msg.addButton(
-                "WSL (Linux)", QMessageBox.ButtonRole.ActionRole
-            )
-            msg.setDefaultButton(btn_wsl)
-            msg.exec()
-
-            if msg.clickedButton() == btn_wsl:
-                target_dir_path = _get_wsl_directory(wsl_homes[0], self)
-                if target_dir_path:
-                    self.import_image_folder(target_dir_path)
-                return
 
         target_dir_path = str(
             QtWidgets.QFileDialog.getExistingDirectory(
