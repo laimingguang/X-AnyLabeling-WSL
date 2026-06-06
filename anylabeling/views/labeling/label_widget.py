@@ -130,6 +130,87 @@ def _create_file_status_icon(color):
     return QtGui.QIcon(pixmap)
 
 
+def _get_wsl_directory(start_path, parent=None):
+    dialog = QtWidgets.QDialog(parent)
+    dialog.setWindowTitle("Select WSL Directory")
+    dialog.setMinimumSize(500, 400)
+
+    layout = QVBoxLayout(dialog)
+    path_label = QLabel(start_path)
+    path_label.setWordWrap(True)
+    layout.addWidget(path_label)
+
+    tree = QtWidgets.QTreeWidget()
+    tree.setHeaderHidden(True)
+    tree.setRootIsDecorated(True)
+    layout.addWidget(tree)
+
+    btn_layout = QHBoxLayout()
+    select_btn = QPushButton("Select Folder")
+    select_btn.setEnabled(False)
+    cancel_btn = QPushButton("Cancel")
+    btn_layout.addStretch()
+    btn_layout.addWidget(select_btn)
+    btn_layout.addWidget(cancel_btn)
+    layout.addLayout(btn_layout)
+
+    select_btn.clicked.connect(dialog.accept)
+    cancel_btn.clicked.connect(dialog.reject)
+
+    selected_path = [start_path]
+
+    def populate_children(item, path):
+        try:
+            entries = sorted(os.listdir(path))
+        except PermissionError:
+            return
+        for entry in entries:
+            full_path = osp.join(path, entry)
+            if osp.isdir(full_path):
+                child = QtWidgets.QTreeWidgetItem([entry])
+                child.setData(0, Qt.ItemDataRole.UserRole, full_path)
+                child.setChildIndicatorPolicy(
+                    QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
+                )
+                item.addChild(child)
+
+    def on_expanded(item):
+        path = item.data(0, Qt.ItemDataRole.UserRole)
+        if not path:
+            return
+        item.takeChildren()
+        populate_children(item, path)
+
+    def on_current_changed(current, _previous):
+        if current:
+            path = current.data(0, Qt.ItemDataRole.UserRole)
+            selected_path[0] = path
+            path_label.setText(path)
+            select_btn.setEnabled(True)
+
+    def on_item_double_clicked(item, _column):
+        path = item.data(0, Qt.ItemDataRole.UserRole)
+        if path and osp.isdir(path):
+            on_expanded(item)
+            item.setExpanded(True)
+
+    tree.itemExpanded.connect(on_expanded)
+    tree.currentItemChanged.connect(on_current_changed)
+    tree.itemDoubleClicked.connect(on_item_double_clicked)
+
+    root_item = QtWidgets.QTreeWidgetItem([start_path])
+    root_item.setData(0, Qt.ItemDataRole.UserRole, start_path)
+    root_item.setChildIndicatorPolicy(
+        QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
+    )
+    tree.addTopLevelItem(root_item)
+    root_item.setExpanded(True)
+
+    if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+        return selected_path[0]
+    return None
+
+
 class LabelingWidget(LabelDialog):
     """The main widget for labeling images"""
 
@@ -6253,6 +6334,8 @@ class LabelingWidget(LabelDialog):
         if not self.may_continue():
             return
 
+        import subprocess
+
         default_open_dir_path = dirpath if dirpath else "."
         if self.last_open_dir and osp.exists(self.last_open_dir):
             default_open_dir_path = self.last_open_dir
@@ -6260,6 +6343,47 @@ class LabelingWidget(LabelDialog):
             default_open_dir_path = (
                 osp.dirname(self.filename) if self.filename else "."
             )
+
+        wsl_homes = []
+        if os.name == "nt":
+            try:
+                output = subprocess.run(
+                    ["wsl", "-l", "-q"],
+                    capture_output=True,
+                    timeout=5,
+                )
+                raw = output.stdout.decode("utf-16-le", errors="replace")
+                for line in raw.strip().splitlines():
+                    name = line.strip().rstrip("\0")
+                    if not name:
+                        continue
+                    home = rf"\\wsl.localhost\{name}\home"
+                    if osp.isdir(home):
+                        for user_dir in os.listdir(home):
+                            user_home = osp.join(home, user_dir)
+                            if osp.isdir(user_home):
+                                wsl_homes.append(user_home)
+            except Exception:
+                pass
+
+        if wsl_homes:
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Select Folder Location")
+            msg.setText("Choose where to browse for folders:")
+            btn_win = msg.addButton(
+                "Windows", QMessageBox.ButtonRole.ActionRole
+            )
+            btn_wsl = msg.addButton(
+                "WSL (Linux)", QMessageBox.ButtonRole.ActionRole
+            )
+            msg.setDefaultButton(btn_wsl)
+            msg.exec()
+
+            if msg.clickedButton() == btn_wsl:
+                target_dir_path = _get_wsl_directory(wsl_homes[0], self)
+                if target_dir_path:
+                    self.import_image_folder(target_dir_path)
+                return
 
         target_dir_path = str(
             QtWidgets.QFileDialog.getExistingDirectory(
@@ -6270,7 +6394,8 @@ class LabelingWidget(LabelDialog):
                 | QtWidgets.QFileDialog.Option.DontResolveSymlinks,
             )
         )
-        self.import_image_folder(target_dir_path)
+        if target_dir_path:
+            self.import_image_folder(target_dir_path)
 
     @property
     def image_list(self):
