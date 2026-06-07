@@ -443,8 +443,17 @@ class UltralyticsDialog(QDialog):
         if file_path:
             self.config_widgets["model"].setText(file_path)
 
+    def _handle_wsl_data_dir(self, dirpath):
+        self.config_widgets["data"].setText(dirpath)
+
     def browse_data_file(self):
         if self.selected_task_type == "Classify":
+            from anylabeling.views.labeling.label_widget import (
+                _try_wsl_folder_open,
+            )
+
+            if _try_wsl_folder_open(self, self._handle_wsl_data_dir):
+                return
             dir_path = QFileDialog.getExistingDirectory(
                 self, self.tr("Select Classification Dataset Directory"), ""
             )

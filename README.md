@@ -26,17 +26,18 @@ In short: you must choose between **good display quality** (Windows-native GUI) 
 
 ## Our Solution
 
-When WSL is detected on Windows, this fork transparently replaces the native folder dialog with a custom `WslDirectoryPicker(QDialog)` that bypasses the Windows Shell entirely:
+When WSL is detected on Windows, this fork transparently replaces native directory selection dialogs with a custom `WslDirectoryPicker(QDialog)` that bypasses the Windows Shell entirely — currently supporting Open Folder, Change Output Directory, Compare View, and Classification Dataset Directory selection:
 
 ![WSL/Windows selector](assets/wsl-select-dialog.png)
 
 For users without WSL (Linux, macOS, Windows without WSL installed), this fork behaves identically to upstream — the folder dialog detects WSL availability and falls back to the standard `QFileDialog` when absent. Zero behavioral difference.
 
-- **Distro enumeration** via `wsl -l -q`, decoded as UTF-16-LE with `errors="replace"` (the output encoding Windows actually uses, which standard detection misses).
+- **Distro enumeration** via `wsl -l -v`, decoded as UTF-16-LE with `errors="replace"` (the output encoding Windows actually uses, which standard detection misses).
+- **WSL version filtering**: only WSL2 distros are shown (`\\wsl.localhost` does not support WSL1). The version column from `wsl -l -v` is parsed and distros with version other than 2 are filtered out.
 - **User-distro filtering**: only distros with a non-empty `/home` directory are shown, with a secondary `"docker"` name check as a safeguard. This hides docker-desktop and other non-user environments.
 - **Lazy-loaded tree navigation** using Python's `os.listdir` directly — `os.listdir` works fine on `\\wsl.localhost\Ubuntu\home\...` even though the Windows Shell cannot navigate there. Each directory is loaded on first expansion and cached in a `_loaded` set.
 - **Robust error handling**: all `OSError` exceptions from `os.listdir` are caught (WinError 64 on the `\\wsl.localhost` root, permission errors on protected directories, etc.).
-- **No external dependencies**: the pure-logic layer (`utils/wsl.py`) imports only `os` and `os.path`. The Qt dialog layer in `label_widget.py` uses only PyQt6 widgets already present in the project.
+- **No external dependencies**: the pure-logic layer (`utils/wsl.py`) imports only stdlib modules (`os`, `os.path`, `subprocess`). The Qt dialog layer in `label_widget.py` uses only PyQt6 widgets already present in the project.
 
 The result is seamless: **native Windows GUI quality + full WSL filesystem access**, zero configuration, no workarounds needed.
 
@@ -54,7 +55,7 @@ To run tests:
 
 ```bash
 uv tool install --editable . --with pytest
-& "$env:USERPROFILE\.local\bin\x-anylabeling-cvhub\Scripts\pytest.exe" tests\test_wsl_picker.py -v
+& "$env:USERPROFILE\AppData\Roaming\uv\tools\x-anylabeling-cvhub\Scripts\pytest.exe" tests\test_wsl_picker.py -v
 ```
 
 ## Relationship to Upstream

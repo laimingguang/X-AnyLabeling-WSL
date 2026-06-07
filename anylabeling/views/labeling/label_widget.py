@@ -6,7 +6,6 @@ import os
 import os.path as osp
 import re
 import shutil
-import subprocess
 from typing import Optional
 
 import cv2
@@ -134,6 +133,7 @@ def _create_file_status_icon(color):
 from anylabeling.views.labeling.utils.wsl import (
     is_user_distro as _is_user_distro_impl,
     list_directory_entries as _list_directory_entries_impl,
+    get_wsl2_distro_paths,
 )
 
 
@@ -294,44 +294,30 @@ def _try_wsl_folder_open(parent, callback):
     """Try WSL folder picker. Returns True if handled, False to fall through."""
     if os.name != "nt":
         return False
-    try:
-        output = subprocess.run(
-            ["wsl", "-l", "-q"],
-            capture_output=True,
-            timeout=5,
-        )
-        raw = output.stdout.decode("utf-16-le", errors="replace")
-        distro_paths = []
-        for line in raw.strip().splitlines():
-            name = line.strip().rstrip("\0")
-            if not name:
-                continue
-            distro_paths.append(rf"\\wsl.localhost\{name}")
-        if not distro_paths:
-            return False
-
-        msg = QMessageBox(parent)
-        msg.setWindowTitle("Select Folder Location")
-        msg.setText("Choose where to browse for folders:")
-        btn_win = msg.addButton(
-            "Windows", QMessageBox.ButtonRole.ActionRole
-        )
-        btn_wsl = msg.addButton(
-            "WSL (Linux)", QMessageBox.ButtonRole.ActionRole
-        )
-        msg.setDefaultButton(btn_wsl)
-        msg.exec()
-
-        if msg.clickedButton() == btn_wsl:
-            target_dir_path = WslDirectoryPicker.get_directory(distro_paths, parent)
-            if target_dir_path:
-                callback(target_dir_path)
-            return True
-        elif msg.clickedButton() is None:
-            return True
+    distro_paths = get_wsl2_distro_paths()
+    if not distro_paths:
         return False
-    except Exception:
-        return False
+
+    msg = QMessageBox(parent)
+    msg.setWindowTitle("Select Folder Location")
+    msg.setText("Choose where to browse for folders:")
+    msg.addButton(
+        "Windows", QMessageBox.ButtonRole.ActionRole
+    )
+    btn_wsl = msg.addButton(
+        "WSL (Linux)", QMessageBox.ButtonRole.ActionRole
+    )
+    msg.setDefaultButton(btn_wsl)
+    msg.exec()
+
+    if msg.clickedButton() == btn_wsl:
+        target_dir_path = WslDirectoryPicker.get_directory(distro_paths, parent)
+        if target_dir_path:
+            callback(target_dir_path)
+        return True
+    elif msg.clickedButton() is None:
+        return True
+    return False
 
 
 class LabelingWidget(LabelDialog):
@@ -6080,7 +6066,25 @@ class LabelingWidget(LabelDialog):
                 self.fn_to_index.clear()
                 self.load_file(filename)
 
+    def _handle_output_dir_selected(self, dirpath):
+        self.output_dir = dirpath
+        self.statusBar().showMessage(
+            self.tr("%s . Annotations will be saved/loaded in %s")
+            % ("Change Annotations Dir", self.output_dir)
+        )
+        self.statusBar().show()
+        current_filename = self.filename
+        self.import_image_folder(self.last_open_dir, load=False)
+        if current_filename in self.image_list:
+            self.file_list_widget.setCurrentRow(
+                self.fn_to_index[str(current_filename)]
+            )
+            self.file_list_widget.repaint()
+
     def change_output_dir_dialog(self, _value=False):
+        if _try_wsl_folder_open(self, self._handle_output_dir_selected):
+            return
+
         default_output_dir = self.output_dir
         if default_output_dir is None and self.filename:
             default_output_dir = osp.dirname(self.filename)
@@ -6099,23 +6103,7 @@ class LabelingWidget(LabelDialog):
         if not output_dir:
             return
 
-        self.output_dir = output_dir
-
-        self.statusBar().showMessage(
-            self.tr("%s . Annotations will be saved/loaded in %s")
-            % ("Change Annotations Dir", self.output_dir)
-        )
-        self.statusBar().show()
-
-        current_filename = self.filename
-        self.import_image_folder(self.last_open_dir, load=False)
-
-        if current_filename in self.image_list:
-            # retain currently selected file
-            self.file_list_widget.setCurrentRow(
-                self.fn_to_index[str(current_filename)]
-            )
-            self.file_list_widget.repaint()
+        self._handle_output_dir_selected(output_dir)
 
     def save_file(self, _value=False):
         assert not self.image.isNull(), "cannot save empty image"
@@ -6184,6 +6172,13 @@ class LabelingWidget(LabelDialog):
         self.canvas.setEnabled(False)
         self.actions.save_as.setEnabled(False)
 
+    def _handle_compare_dir_selected(self, dirpath):
+        if not self.compare_view_manager.set_compare_directory(dirpath):
+            self.status(self.tr("Invalid compare directory"), 3000)
+            return
+        self.compare_view_manager.load_compare_for_file(self.filename)
+        self.compare_view_slider.show_slider()
+
     def toggle_compare_view(self):
         """Toggle the compare view on or off."""
         if self.compare_view_manager.is_active():
@@ -6192,6 +6187,9 @@ class LabelingWidget(LabelDialog):
 
         if not self.filename:
             self.status(self.tr("Please open an image first"), 3000)
+            return
+
+        if _try_wsl_folder_open(self, self._handle_compare_dir_selected):
             return
 
         compare_dir = QtWidgets.QFileDialog.getExistingDirectory(
@@ -6204,12 +6202,7 @@ class LabelingWidget(LabelDialog):
         if not compare_dir:
             return
 
-        if not self.compare_view_manager.set_compare_directory(compare_dir):
-            self.status(self.tr("Invalid compare directory"), 3000)
-            return
-
-        self.compare_view_manager.load_compare_for_file(self.filename)
-        self.compare_view_slider.show_slider()
+        self._handle_compare_dir_selected(compare_dir)
 
     def close_compare_view(self, confirm=True):
         """Close the compare view."""

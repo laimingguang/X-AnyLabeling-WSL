@@ -30,6 +30,7 @@ def _load_wsl_module():
 _wsl_mod = _load_wsl_module()
 is_user_distro = _wsl_mod.is_user_distro
 list_directory_entries = _wsl_mod.list_directory_entries
+get_wsl2_distro_paths = _wsl_mod.get_wsl2_distro_paths
 
 
 class TestWslDistroFilter(unittest.TestCase):
@@ -188,6 +189,99 @@ class TestWslNameExtraction(unittest.TestCase):
         self.assertEqual(
             self._extract_name(r"\\wsl.localhost\Ubuntu\\"), "Ubuntu"
         )
+
+
+class TestGetWsl2DistroPaths(unittest.TestCase):
+    """WSL2 distro detection via wsl -l -v."""
+
+    def _mock_output(self, text):
+        mock = MagicMock()
+        mock.stdout = text.encode("utf-16-le")
+        return mock
+
+    def test_returns_wsl2_paths(self):
+        text = (
+            "  NAME                   STATE           VERSION\n"
+            "* Ubuntu                 Running         2\n"
+            "  docker-desktop         Running         2\n"
+        )
+        with patch.object(
+            _wsl_mod.subprocess, "run", return_value=self._mock_output(text)
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(
+            paths,
+            [
+                r"\\wsl.localhost\Ubuntu",
+                r"\\wsl.localhost\docker-desktop",
+            ],
+        )
+
+    def test_filters_wsl1(self):
+        text = (
+            "  NAME                   STATE           VERSION\n"
+            "  Ubuntu-18.04           Stopped         1\n"
+            "  Ubuntu                 Running         2\n"
+        )
+        with patch.object(
+            _wsl_mod.subprocess, "run", return_value=self._mock_output(text)
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(paths, [r"\\wsl.localhost\Ubuntu"])
+
+    def test_filters_all_wsl1_returns_empty(self):
+        text = (
+            "  NAME                   STATE           VERSION\n"
+            "  Ubuntu-18.04           Stopped         1\n"
+        )
+        with patch.object(
+            _wsl_mod.subprocess, "run", return_value=self._mock_output(text)
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(paths, [])
+
+    def test_empty_output_returns_empty(self):
+        with patch.object(
+            _wsl_mod.subprocess, "run", return_value=self._mock_output("")
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(paths, [])
+
+    def test_whitespace_output_returns_empty(self):
+        with patch.object(
+            _wsl_mod.subprocess,
+            "run",
+            return_value=self._mock_output(" \t\n "),
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(paths, [])
+
+    def test_subprocess_error_returns_empty(self):
+        with patch.object(
+            _wsl_mod.subprocess,
+            "run",
+            side_effect=OSError(2, "No such file"),
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(paths, [])
+
+    def test_file_not_found_returns_empty(self):
+        with patch.object(
+            _wsl_mod.subprocess,
+            "run",
+            side_effect=FileNotFoundError(),
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(paths, [])
+
+    def test_timeout_returns_empty(self):
+        with patch.object(
+            _wsl_mod.subprocess,
+            "run",
+            side_effect=TimeoutExpired("wsl", 5),
+        ):
+            paths = get_wsl2_distro_paths()
+        self.assertEqual(paths, [])
 
 
 # --- Qt integration tests ---
@@ -361,7 +455,7 @@ class TestTryWslFolderOpen(unittest.TestCase):
             result = _try_wsl_folder_open(None, None)
         self.assertFalse(result)
 
-    def test_wsl_command_fails_exception(self):
+    def test_no_distros_returns_false(self):
         from anylabeling.views.labeling.label_widget import (
             _try_wsl_folder_open,
         )
@@ -371,63 +465,8 @@ class TestTryWslFolderOpen(unittest.TestCase):
                 "anylabeling.views.labeling.label_widget.os.name", "nt"
             ),
             patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                side_effect=OSError(2, "No such file"),
-            ),
-        ):
-            result = _try_wsl_folder_open(None, None)
-        self.assertFalse(result)
-
-    def test_wsl_command_timeout(self):
-        from anylabeling.views.labeling.label_widget import (
-            _try_wsl_folder_open,
-        )
-
-        with (
-            patch(
-                "anylabeling.views.labeling.label_widget.os.name", "nt"
-            ),
-            patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                side_effect=TimeoutExpired("wsl", 5),
-            ),
-        ):
-            result = _try_wsl_folder_open(None, None)
-        self.assertFalse(result)
-
-    def test_empty_output_no_distros(self):
-        from anylabeling.views.labeling.label_widget import (
-            _try_wsl_folder_open,
-        )
-
-        mock_output = MagicMock()
-        mock_output.stdout = "".encode("utf-16-le")
-        with (
-            patch(
-                "anylabeling.views.labeling.label_widget.os.name", "nt"
-            ),
-            patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                return_value=mock_output,
-            ),
-        ):
-            result = _try_wsl_folder_open(None, None)
-        self.assertFalse(result)
-
-    def test_whitespace_only_output(self):
-        from anylabeling.views.labeling.label_widget import (
-            _try_wsl_folder_open,
-        )
-
-        mock_output = MagicMock()
-        mock_output.stdout = " \t\n ".encode("utf-16-le")
-        with (
-            patch(
-                "anylabeling.views.labeling.label_widget.os.name", "nt"
-            ),
-            patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                return_value=mock_output,
+                "anylabeling.views.labeling.label_widget.get_wsl2_distro_paths",
+                return_value=[],
             ),
         ):
             result = _try_wsl_folder_open(None, None)
@@ -444,11 +483,6 @@ class TestTryWslFolderOpenQt(unittest.TestCase):
         self.app = QtWidgets.QApplication.instance()
         if self.app is None:
             self.app = QtWidgets.QApplication([])
-
-    def _make_output(self, text):
-        mock_output = MagicMock()
-        mock_output.stdout = text.encode("utf-16-le")
-        return mock_output
 
     def _make_msgbox(self, clicked_role):
         mock_msg = MagicMock()
@@ -475,8 +509,8 @@ class TestTryWslFolderOpenQt(unittest.TestCase):
                 "anylabeling.views.labeling.label_widget.os.name", "nt"
             ),
             patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                return_value=self._make_output("Ubuntu"),
+                "anylabeling.views.labeling.label_widget.get_wsl2_distro_paths",
+                return_value=[r"\\wsl.localhost\Ubuntu"],
             ),
             patch(
                 "anylabeling.views.labeling.label_widget.QMessageBox",
@@ -499,8 +533,8 @@ class TestTryWslFolderOpenQt(unittest.TestCase):
                 "anylabeling.views.labeling.label_widget.os.name", "nt"
             ),
             patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                return_value=self._make_output("Ubuntu"),
+                "anylabeling.views.labeling.label_widget.get_wsl2_distro_paths",
+                return_value=[r"\\wsl.localhost\Ubuntu"],
             ),
             patch(
                 "anylabeling.views.labeling.label_widget.QMessageBox",
@@ -529,8 +563,8 @@ class TestTryWslFolderOpenQt(unittest.TestCase):
                 "anylabeling.views.labeling.label_widget.os.name", "nt"
             ),
             patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                return_value=self._make_output("Ubuntu"),
+                "anylabeling.views.labeling.label_widget.get_wsl2_distro_paths",
+                return_value=[r"\\wsl.localhost\Ubuntu"],
             ),
             patch(
                 "anylabeling.views.labeling.label_widget.QMessageBox",
@@ -557,8 +591,8 @@ class TestTryWslFolderOpenQt(unittest.TestCase):
                 "anylabeling.views.labeling.label_widget.os.name", "nt"
             ),
             patch(
-                "anylabeling.views.labeling.label_widget.subprocess.run",
-                return_value=self._make_output("Ubuntu"),
+                "anylabeling.views.labeling.label_widget.get_wsl2_distro_paths",
+                return_value=[r"\\wsl.localhost\Ubuntu"],
             ),
             patch(
                 "anylabeling.views.labeling.label_widget.QMessageBox",
@@ -698,3 +732,85 @@ class TestWslPathInput(unittest.TestCase):
             picker._path_edit.text(), r"\\wsl.localhost\Ubuntu\home\zsw"
         )
         self.assertTrue(picker._select_btn.isEnabled())
+
+
+@unittest.skipUnless(
+    PYQT_AVAILABLE, "PyQt6 required for UltralyticsDialog tests"
+)
+class TestUltralyticsDialogWsl(unittest.TestCase):
+    """browse_data_file WSL integration for Classification dataset."""
+
+    def setUp(self):
+        self.app = QtWidgets.QApplication.instance()
+        if self.app is None:
+            self.app = QtWidgets.QApplication([])
+
+    def _make_mock_dialog(self, task_type="Classify"):
+        mock = MagicMock(spec=[])
+        mock.selected_task_type = task_type
+        mock.config_widgets = {"data": MagicMock()}
+        mock._handle_wsl_data_dir = MagicMock()
+        mock.tr = MagicMock(return_value="")
+        return mock
+
+    def _bind_browse(self, mock_dialog):
+        from anylabeling.views.training.ultralytics_dialog import (
+            UltralyticsDialog,
+        )
+
+        return UltralyticsDialog.browse_data_file.__get__(
+            mock_dialog, UltralyticsDialog
+        )
+
+    def test_classify_try_wsl_first(self):
+        """Classify: WSL returning True should skip QFileDialog."""
+        mock = self._make_mock_dialog("Classify")
+        browse = self._bind_browse(mock)
+        with patch(
+            "anylabeling.views.labeling.label_widget._try_wsl_folder_open",
+            return_value=True,
+        ) as mock_try:
+            browse()
+
+        mock_try.assert_called_once_with(
+            mock, mock._handle_wsl_data_dir
+        )
+        mock.config_widgets["data"].setText.assert_not_called()
+
+    def test_classify_falls_through_when_no_wsl(self):
+        """Classify: WSL returning False should fall to QFileDialog."""
+        mock = self._make_mock_dialog("Classify")
+        browse = self._bind_browse(mock)
+        wsl_path = r"\\wsl.localhost\Ubuntu\data"
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget._try_wsl_folder_open",
+                return_value=False,
+            ),
+            patch(
+                "anylabeling.views.training.ultralytics_dialog.QFileDialog.getExistingDirectory",
+                return_value=wsl_path,
+            ),
+        ):
+            browse()
+
+        mock.config_widgets["data"].setText.assert_called_once_with(
+            wsl_path
+        )
+
+    def test_non_classify_skips_wsl(self):
+        """Detection/Segmentation: WSL path should not be triggered."""
+        mock = self._make_mock_dialog("Detect")
+        browse = self._bind_browse(mock)
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget._try_wsl_folder_open",
+            ) as mock_try,
+            patch(
+                "anylabeling.views.training.ultralytics_dialog.QFileDialog.getOpenFileName",
+                return_value=("", ""),
+            ),
+        ):
+            browse()
+
+        mock_try.assert_not_called()

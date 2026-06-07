@@ -26,17 +26,18 @@
 
 ## 解决方案
 
-检测到 Windows 上存在 WSL 时，本 fork 将系统文件夹对话框透明替换为自定义的 `WslDirectoryPicker(QDialog)`，彻底绕过 Windows Shell 层：
+检测到 Windows 上存在 WSL 时，本 fork 将系统目录选择对话框透明替换为自定义的 `WslDirectoryPicker(QDialog)`，彻底绕过 Windows Shell 层——目前已支持打开文件夹、更改输出目录、对比视图和分类数据集目录选择：
 
 ![WSL/Windows 选择](assets/wsl-select-dialog.png)
 
 对于没有 WSL 的用户（Linux、macOS、未安装 WSL 的 Windows），本 fork 的行为与上游完全一致——文件对话框会检测 WSL 是否存在，不存在则回退为标准 `QFileDialog`，零行为差异。
 
-- **发行版枚举**：通过 `wsl -l -q` 获取列表，以 UTF-16-LE 编码解码（`errors="replace"`）——这是 Windows 实际使用的输出编码，标准编码检测会遗漏。
+- **发行版枚举**：通过 `wsl -l -v` 获取列表（含版本号），以 UTF-16-LE 编码解码（`errors="replace"`）——这是 Windows 实际使用的输出编码，标准编码检测会遗漏。
+- **WSL 版本过滤**：仅显示 WSL2 发行版（`\\wsl.localhost` 不支持 WSL1）。解析 `wsl -l -v` 输出中的版本列，过滤掉非版本 2 的发行版。
 - **用户发行版过滤**：仅显示 `/home` 目录非空的发行版，辅以 `"docker"` 名称检查作为兜底。以此隐藏 docker-desktop 等非用户环境。
 - **延迟加载树形导航**：直接用 Python 的 `os.listdir` 遍历目录——`os.listdir` 在 `\\wsl.localhost\Ubuntu\home\...` 上完全正常，即使 Windows Shell 无法导航进去。每个目录在首次展开时加载，加载结果缓存在 `_loaded` 集合中。
 - **健壮的错误处理**：所有 `os.listdir` 抛出的 `OSError` 异常均被捕获（`\\wsl.localhost` 根目录的 WinError 64、保护目录的权限错误等）。
-- **零额外依赖**：纯逻辑层（`utils/wsl.py`）仅导入 `os` 和 `os.path`；Qt 对话框层（`label_widget.py`）只使用项目中已有的 PyQt6 控件。
+- **零额外依赖**：纯逻辑层（`utils/wsl.py`）仅导入标准库模块（`os`、`os.path`、`subprocess`）；Qt 对话框层（`label_widget.py`）只使用项目中已有的 PyQt6 控件。
 
 最终效果是无缝的：**Windows 原生界面品质 + 完整 WSL 文件系统访问**，零配置，无需任何变通方案。
 
@@ -54,7 +55,7 @@ uv tool install --editable .
 
 ```bash
 uv tool install --editable . --with pytest
-& "$env:USERPROFILE\.local\bin\x-anylabeling-cvhub\Scripts\pytest.exe" tests\test_wsl_picker.py -v
+& "$env:USERPROFILE\AppData\Roaming\uv\tools\x-anylabeling-cvhub\Scripts\pytest.exe" tests\test_wsl_picker.py -v
 ```
 
 ## 与上游的关系
