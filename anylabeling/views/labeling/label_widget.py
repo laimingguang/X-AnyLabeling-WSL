@@ -201,7 +201,7 @@ class WslDirectoryPicker(QtWidgets.QDialog):
     def _build_tree(self, distro_paths):
         icon_provider = QtWidgets.QFileIconProvider()
         for distro_path in distro_paths:
-            name = osp.basename(distro_path)
+            name = distro_path.rstrip("\\").split("\\")[-1]
             if not osp.isdir(distro_path):
                 continue
             if not self._is_user_distro(distro_path, name):
