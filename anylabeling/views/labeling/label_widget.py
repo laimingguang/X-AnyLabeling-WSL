@@ -143,21 +143,37 @@ class WslDirectoryPicker(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Select WSL Directory"))
         self.setMinimumSize(500, 400)
+        self.setModal(True)
+        self.setWindowFlags(
+            self.windowFlags()
+            & ~QtCore.Qt.WindowType.WindowContextHelpButtonHint
+        )
+        self.setStyleSheet(get_dialog_style())
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
         self._path_label = QLabel()
         self._path_label.setWordWrap(True)
+        font = self._path_label.font()
+        font.setBold(True)
+        self._path_label.setFont(font)
         layout.addWidget(self._path_label)
 
         self._tree = QtWidgets.QTreeWidget()
         self._tree.setHeaderHidden(True)
         self._tree.setRootIsDecorated(True)
+        self._tree.setAnimated(True)
         layout.addWidget(self._tree)
 
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(12)
         self._select_btn = QPushButton(self.tr("Select Folder"))
         self._select_btn.setEnabled(False)
+        self._select_btn.setStyleSheet(get_ok_btn_style())
         cancel_btn = QPushButton(self.tr("Cancel"))
+        cancel_btn.setStyleSheet(get_cancel_btn_style())
         btn_layout.addStretch()
         btn_layout.addWidget(self._select_btn)
         btn_layout.addWidget(cancel_btn)
@@ -175,13 +191,24 @@ class WslDirectoryPicker(QtWidgets.QDialog):
 
         self._build_tree(distro_paths)
 
+    @staticmethod
+    def _is_user_distro(path, name):
+        home_path = osp.join(path, "home")
+        if osp.isdir(home_path) and os.listdir(home_path):
+            return True
+        return "docker" not in name.lower()
+
     def _build_tree(self, distro_paths):
+        icon_provider = QtWidgets.QFileIconProvider()
         for distro_path in distro_paths:
             name = osp.basename(distro_path)
             if not osp.isdir(distro_path):
                 continue
+            if not self._is_user_distro(distro_path, name):
+                continue
             item = QtWidgets.QTreeWidgetItem([name])
             item.setData(0, Qt.ItemDataRole.UserRole, distro_path)
+            item.setIcon(0, icon_provider.icon(QtWidgets.QFileIconProvider.IconType.Folder))
             item.setChildIndicatorPolicy(
                 QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
             )
