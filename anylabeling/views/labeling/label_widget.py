@@ -132,7 +132,7 @@ def _create_file_status_icon(color):
 
 
 class WslDirectoryPicker(QtWidgets.QDialog):
-    """Directory picker for WSL UNC paths (\\wsl.localhost\<distro>\...).
+    """Directory picker for WSL UNC paths (\\\\wsl.localhost\\<distro>\\...).
 
     Qt's QFileDialog cannot navigate to WSL UNC paths on Windows,
     but Python's os.listdir can. This dialog provides a tree-based
