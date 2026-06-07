@@ -153,6 +153,9 @@ wandb/
 zipped_models/
 .DS_Store
 
+# uv lock file (project uses uv tool install, not uv sync)
+uv.lock
+
 # Generated UI files
 *_ui.py
 anylabeling/app_info.py-*
