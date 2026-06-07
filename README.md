@@ -26,6 +26,8 @@ In short: you must choose between **good display quality** (Windows-native GUI) 
 
 When WSL is detected on Windows, this fork transparently replaces the native folder dialog with a custom `WslDirectoryPicker(QDialog)` that bypasses the Windows Shell entirely:
 
+![WSL/Windows selector](assets/wsl-select-dialog.png)
+
 - **Distro enumeration** via `wsl -l -q`, decoded as UTF-16-LE with `errors="replace"` (the output encoding Windows actually uses, which standard detection misses).
 - **User-distro filtering**: only distros with a non-empty `/home` directory are shown, with a secondary `"docker"` name check as a safeguard. This hides docker-desktop and other non-user environments.
 - **Lazy-loaded tree navigation** using Python's `os.listdir` directly — `os.listdir` works fine on `\\wsl.localhost\Ubuntu\home\...` even though the Windows Shell cannot navigate there. Each directory is loaded on first expansion and cached in a `_loaded` set.
@@ -33,6 +35,8 @@ When WSL is detected on Windows, this fork transparently replaces the native fol
 - **No external dependencies**: the pure-logic layer (`utils/wsl.py`) imports only `os` and `os.path`. The Qt dialog layer in `label_widget.py` uses only PyQt6 widgets already present in the project.
 
 The result is seamless: **native Windows GUI quality + full WSL filesystem access**, zero configuration, no workarounds needed.
+
+![WslDirectoryPicker dialog](assets/wsl-directory-picker.png)
 
 ## Install
 
