@@ -28,6 +28,8 @@
 
 ![WSL/Windows 选择](assets/wsl-select-dialog.png)
 
+对于没有 WSL 的用户（Linux、macOS、未安装 WSL 的 Windows），本 fork 的行为与上游完全一致——文件对话框会检测 WSL 是否存在，不存在则回退为标准 `QFileDialog`，零行为差异。
+
 - **发行版枚举**：通过 `wsl -l -q` 获取列表，以 UTF-16-LE 编码解码（`errors="replace"`）——这是 Windows 实际使用的输出编码，标准编码检测会遗漏。
 - **用户发行版过滤**：仅显示 `/home` 目录非空的发行版，辅以 `"docker"` 名称检查作为兜底。以此隐藏 docker-desktop 等非用户环境。
 - **延迟加载树形导航**：直接用 Python 的 `os.listdir` 遍历目录——`os.listdir` 在 `\\wsl.localhost\Ubuntu\home\...` 上完全正常，即使 Windows Shell 无法导航进去。每个目录在首次展开时加载，加载结果缓存在 `_loaded` 集合中。
