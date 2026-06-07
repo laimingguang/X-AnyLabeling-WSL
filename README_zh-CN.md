@@ -1,6 +1,6 @@
 <div align="center">
   <p>
-    <a href="https://github.com/laimingguang/X-AnyLabeling/" target="_blank">
+    <a href="https://github.com/laimingguang/X-AnyLabeling-WSL/" target="_blank">
       <img alt="X-AnyLabeling" height="200px" src="https://github.com/user-attachments/assets/0714a182-92bd-4b47-b48d-1c5d7c225176"></a>
   </p>
 
@@ -45,7 +45,7 @@
 ## 安装
 
 ```bash
-git clone https://github.com/laimingguang/X-AnyLabeling.git
+git clone https://github.com/laimingguang/X-AnyLabeling-WSL.git
 cd X-AnyLabeling
 uv tool install --editable .
 ```
