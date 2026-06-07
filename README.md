@@ -8,7 +8,9 @@
 
 </div>
 
-A fork of [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) that enables **native WSL2 dataset directory browsing** on Windows. If you do your deep learning on WSL2 but want crisp HiDPI rendering at the GUI layer, this fork closes the gap between the two environments.
+# WSL-Enhanced X-AnyLabeling
+
+A fork of [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) that adds **native WSL2 dataset directory browsing** on Windows. If you do your deep learning on WSL2 but want crisp HiDPI rendering at the GUI layer, this fork closes the gap between the two environments.
 
 ---
 

@@ -8,6 +8,8 @@
 
 </div>
 
+# WSL-Enhanced X-AnyLabeling
+
 这是 [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) 的一个 fork，唯一增加的功能是：**在 Windows 上原生浏览 WSL2 数据集目录**。如果你用 WSL2 做深度学习、但希望在 Windows 原生环境下享受清晰的高分屏 GUI 体验，这个 fork 就是为此而生。
 
 ---
