@@ -259,6 +259,50 @@ class WslDirectoryPicker(QtWidgets.QDialog):
         return None
 
 
+def _try_wsl_folder_open(parent, callback):
+    """Try WSL folder picker. Returns True if handled, False to fall through."""
+    if os.name != "nt":
+        return False
+    try:
+        output = subprocess.run(
+            ["wsl", "-l", "-q"],
+            capture_output=True,
+            timeout=5,
+        )
+        raw = output.stdout.decode("utf-16-le", errors="replace")
+        distro_paths = []
+        for line in raw.strip().splitlines():
+            name = line.strip().rstrip("\0")
+            if not name:
+                continue
+            distro_paths.append(rf"\\wsl.localhost\{name}")
+        if not distro_paths:
+            return False
+
+        msg = QMessageBox(parent)
+        msg.setWindowTitle("Select Folder Location")
+        msg.setText("Choose where to browse for folders:")
+        btn_win = msg.addButton(
+            "Windows", QMessageBox.ButtonRole.ActionRole
+        )
+        btn_wsl = msg.addButton(
+            "WSL (Linux)", QMessageBox.ButtonRole.ActionRole
+        )
+        msg.setDefaultButton(btn_wsl)
+        msg.exec()
+
+        if msg.clickedButton() == btn_wsl:
+            target_dir_path = WslDirectoryPicker.get_directory(distro_paths, parent)
+            if target_dir_path:
+                callback(target_dir_path)
+            return True
+        elif msg.clickedButton() is None:
+            return True
+        return False
+    except Exception:
+        return False
+
+
 class LabelingWidget(LabelDialog):
     """The main widget for labeling images"""
 
@@ -6390,40 +6434,8 @@ class LabelingWidget(LabelDialog):
                 osp.dirname(self.filename) if self.filename else "."
             )
 
-        if os.name == "nt":
-            try:
-                output = subprocess.run(
-                    ["wsl", "-l", "-q"],
-                    capture_output=True,
-                    timeout=5,
-                )
-                raw = output.stdout.decode("utf-16-le", errors="replace")
-                distro_paths = []
-                for line in raw.strip().splitlines():
-                    name = line.strip().rstrip("\0")
-                    if not name:
-                        continue
-                    distro_paths.append(rf"\\wsl.localhost\{name}")
-                if distro_paths:
-                    msg = QMessageBox(self)
-                    msg.setWindowTitle("Select Folder Location")
-                    msg.setText("Choose where to browse for folders:")
-                    btn_win = msg.addButton(
-                        "Windows", QMessageBox.ButtonRole.ActionRole
-                    )
-                    btn_wsl = msg.addButton(
-                        "WSL (Linux)", QMessageBox.ButtonRole.ActionRole
-                    )
-                    msg.setDefaultButton(btn_wsl)
-                    msg.exec()
-
-                    if msg.clickedButton() == btn_wsl:
-                        target_dir_path = WslDirectoryPicker.get_directory(distro_paths, self)
-                        if target_dir_path:
-                            self.import_image_folder(target_dir_path)
-                        return
-            except Exception:
-                pass
+        if _try_wsl_folder_open(self, self.import_image_folder):
+            return
 
         target_dir_path = str(
             QtWidgets.QFileDialog.getExistingDirectory(

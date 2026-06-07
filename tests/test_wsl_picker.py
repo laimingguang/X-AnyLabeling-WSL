@@ -2,7 +2,8 @@ import importlib.util
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from subprocess import TimeoutExpired
+from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -341,3 +342,229 @@ class TestWslDirectoryPickerGetDirectory(unittest.TestCase):
             picker._selected_path, r"\\wsl.localhost\Ubuntu"
         )
         self.assertTrue(picker._select_btn.isEnabled())
+
+
+# --- WSL folder open orchestration (non-Qt scenarios) ---
+
+
+class TestTryWslFolderOpen(unittest.TestCase):
+    """_try_wsl_folder_open scenarios that don't need QMessageBox."""
+
+    def test_not_windows(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        with patch(
+            "anylabeling.views.labeling.label_widget.os.name", "posix"
+        ):
+            result = _try_wsl_folder_open(None, None)
+        self.assertFalse(result)
+
+    def test_wsl_command_fails_exception(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                side_effect=OSError(2, "No such file"),
+            ),
+        ):
+            result = _try_wsl_folder_open(None, None)
+        self.assertFalse(result)
+
+    def test_wsl_command_timeout(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                side_effect=TimeoutExpired("wsl", 5),
+            ),
+        ):
+            result = _try_wsl_folder_open(None, None)
+        self.assertFalse(result)
+
+    def test_empty_output_no_distros(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        mock_output = MagicMock()
+        mock_output.stdout = "".encode("utf-16-le")
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                return_value=mock_output,
+            ),
+        ):
+            result = _try_wsl_folder_open(None, None)
+        self.assertFalse(result)
+
+    def test_whitespace_only_output(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        mock_output = MagicMock()
+        mock_output.stdout = " \t\n ".encode("utf-16-le")
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                return_value=mock_output,
+            ),
+        ):
+            result = _try_wsl_folder_open(None, None)
+        self.assertFalse(result)
+
+
+@unittest.skipUnless(
+    PYQT_AVAILABLE, "PyQt6 required for WSL dialog flow tests"
+)
+class TestTryWslFolderOpenQt(unittest.TestCase):
+    """_try_wsl_folder_open scenarios that exercise the QMessageBox branch."""
+
+    def setUp(self):
+        self.app = QtWidgets.QApplication.instance()
+        if self.app is None:
+            self.app = QtWidgets.QApplication([])
+
+    def _make_output(self, text):
+        mock_output = MagicMock()
+        mock_output.stdout = text.encode("utf-16-le")
+        return mock_output
+
+    def _make_msgbox(self, clicked_role):
+        mock_msg = MagicMock()
+        btn_win = MagicMock()
+        btn_wsl = MagicMock()
+        mock_msg.addButton.side_effect = [btn_win, btn_wsl]
+        if clicked_role == "win":
+            mock_msg.clickedButton.return_value = btn_win
+        elif clicked_role == "wsl":
+            mock_msg.clickedButton.return_value = btn_wsl
+        else:
+            mock_msg.clickedButton.return_value = None
+        return mock_msg
+
+    def test_x_button_returns_true_no_callback(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        callback = MagicMock()
+        mock_msg = self._make_msgbox(None)
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                return_value=self._make_output("Ubuntu"),
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.QMessageBox",
+                return_value=mock_msg,
+            ),
+        ):
+            result = _try_wsl_folder_open(None, callback)
+        self.assertTrue(result)
+        callback.assert_not_called()
+
+    def test_wsl_button_selects_directory(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        callback = MagicMock()
+        mock_msg = self._make_msgbox("wsl")
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                return_value=self._make_output("Ubuntu"),
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.QMessageBox",
+                return_value=mock_msg,
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.WslDirectoryPicker.get_directory",
+                return_value=r"\\wsl.localhost\Ubuntu\home\zsw",
+            ),
+        ):
+            result = _try_wsl_folder_open(None, callback)
+        self.assertTrue(result)
+        callback.assert_called_once_with(
+            r"\\wsl.localhost\Ubuntu\home\zsw"
+        )
+
+    def test_wsl_button_cancels_picker_returns_true(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        callback = MagicMock()
+        mock_msg = self._make_msgbox("wsl")
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                return_value=self._make_output("Ubuntu"),
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.QMessageBox",
+                return_value=mock_msg,
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.WslDirectoryPicker.get_directory",
+                return_value=None,
+            ),
+        ):
+            result = _try_wsl_folder_open(None, callback)
+        self.assertTrue(result)
+        callback.assert_not_called()
+
+    def test_windows_button_falls_through(self):
+        from anylabeling.views.labeling.label_widget import (
+            _try_wsl_folder_open,
+        )
+
+        callback = MagicMock()
+        mock_msg = self._make_msgbox("win")
+        with (
+            patch(
+                "anylabeling.views.labeling.label_widget.os.name", "nt"
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.subprocess.run",
+                return_value=self._make_output("Ubuntu"),
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.QMessageBox",
+                return_value=mock_msg,
+            ),
+        ):
+            result = _try_wsl_folder_open(None, callback)
+        self.assertFalse(result)
+        callback.assert_not_called()
