@@ -167,6 +167,13 @@ class WslDirectoryPicker(QtWidgets.QDialog):
         self._path_label.setFont(font)
         layout.addWidget(self._path_label)
 
+        self._path_edit = QLineEdit()
+        self._path_edit.setPlaceholderText(
+            self.tr("Enter a WSL path or browse the tree below...")
+        )
+        self._path_edit.returnPressed.connect(self._on_path_entered)
+        layout.addWidget(self._path_edit)
+
         self._tree = QtWidgets.QTreeWidget()
         self._tree.setHeaderHidden(True)
         self._tree.setRootIsDecorated(True)
@@ -196,6 +203,14 @@ class WslDirectoryPicker(QtWidgets.QDialog):
         self._loaded = set()
 
         self._build_tree(distro_paths)
+
+        settings = QtCore.QSettings("X-AnyLabeling", "WslDirectoryPicker")
+        last_path = settings.value("last_directory", "")
+        if last_path and osp.isdir(last_path):
+            self._selected_path = last_path
+            self._path_label.setText(last_path)
+            self._path_edit.setText(last_path)
+            self._select_btn.setEnabled(True)
 
     @staticmethod
     def _is_user_distro(path, name):
@@ -251,10 +266,26 @@ class WslDirectoryPicker(QtWidgets.QDialog):
             self._on_expanded(item)
             item.setExpanded(True)
 
+    def _on_path_entered(self):
+        path = self._path_edit.text().strip()
+        if not path or not osp.isdir(path):
+            return
+        self._selected_path = path
+        self._path_label.setText(path)
+        self._select_btn.setEnabled(True)
+
+    def _save_last_path(self):
+        settings = QtCore.QSettings("X-AnyLabeling", "WslDirectoryPicker")
+        if self._selected_path:
+            settings.setValue("last_directory", self._selected_path)
+        else:
+            settings.remove("last_directory")
+
     @staticmethod
     def get_directory(distro_paths, parent=None):
         dialog = WslDirectoryPicker(distro_paths, parent)
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            dialog._save_last_path()
             return dialog._selected_path
         return None
 

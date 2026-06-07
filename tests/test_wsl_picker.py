@@ -568,3 +568,133 @@ class TestTryWslFolderOpenQt(unittest.TestCase):
             result = _try_wsl_folder_open(None, callback)
         self.assertFalse(result)
         callback.assert_not_called()
+
+
+@unittest.skipUnless(
+    PYQT_AVAILABLE, "PyQt6 required for WSL picker dialog tests"
+)
+class TestWslPathInput(unittest.TestCase):
+    """Path input box and QSettings persist."""
+
+    def setUp(self):
+        self.app = QtWidgets.QApplication.instance()
+        if self.app is None:
+            self.app = QtWidgets.QApplication([])
+
+    def test_on_path_entered_valid_dir(self):
+        from anylabeling.views.labeling.label_widget import (
+            WslDirectoryPicker,
+        )
+
+        distro_paths = [r"\\wsl.localhost\Ubuntu"]
+        with (
+            patch.object(
+                WslDirectoryPicker, "_is_user_distro", return_value=True
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.osp.isdir",
+                return_value=True,
+            ),
+        ):
+            picker = WslDirectoryPicker(distro_paths)
+            picker._path_edit.setText(
+                r"\\wsl.localhost\Ubuntu\home\zsw\datasets"
+            )
+            picker._on_path_entered()
+
+        self.assertEqual(
+            picker._selected_path,
+            r"\\wsl.localhost\Ubuntu\home\zsw\datasets",
+        )
+        self.assertTrue(picker._select_btn.isEnabled())
+
+    def test_on_path_entered_invalid_dir_ignored(self):
+        from anylabeling.views.labeling.label_widget import (
+            WslDirectoryPicker,
+        )
+
+        distro_paths = [r"\\wsl.localhost\Ubuntu"]
+        with (
+            patch.object(
+                WslDirectoryPicker, "_is_user_distro", return_value=True
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.osp.isdir",
+                side_effect=lambda p: "NonExistent" not in p,
+            ),
+        ):
+            picker = WslDirectoryPicker(distro_paths)
+            picker._selected_path = None
+            picker._select_btn.setEnabled(False)
+            picker._path_edit.setText(
+                r"\\wsl.localhost\Ubuntu\NonExistent"
+            )
+            picker._on_path_entered()
+
+        self.assertIsNone(picker._selected_path)
+        self.assertFalse(picker._select_btn.isEnabled())
+
+    def test_save_last_path_stores_to_qsettings(self):
+        from anylabeling.views.labeling.label_widget import (
+            WslDirectoryPicker,
+        )
+
+        distro_paths = [r"\\wsl.localhost\Ubuntu"]
+        with (
+            patch.object(
+                WslDirectoryPicker, "_is_user_distro", return_value=True
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.osp.isdir",
+                return_value=True,
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.QtCore.QSettings"
+            ) as mock_settings_cls,
+        ):
+            mock_settings_cls.return_value.value.return_value = ""
+            picker = WslDirectoryPicker(distro_paths)
+            mock_settings = mock_settings_cls.return_value
+            picker._selected_path = (
+                r"\\wsl.localhost\Ubuntu\home\zsw\datasets"
+            )
+            picker._save_last_path()
+            mock_settings.setValue.assert_called_once_with(
+                "last_directory",
+                r"\\wsl.localhost\Ubuntu\home\zsw\datasets",
+            )
+
+    def test_restore_last_path_on_init(self):
+        from anylabeling.views.labeling.label_widget import (
+            WslDirectoryPicker,
+        )
+
+        # Use a mock QSettings that returns a saved path
+        mock_settings = MagicMock()
+        mock_settings.value.return_value = (
+            r"\\wsl.localhost\Ubuntu\home\zsw"
+        )
+
+        distro_paths = [r"\\wsl.localhost\Ubuntu"]
+        with (
+            patch.object(
+                WslDirectoryPicker, "_is_user_distro", return_value=True
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.osp.isdir",
+                return_value=True,
+            ),
+            patch(
+                "anylabeling.views.labeling.label_widget.QtCore.QSettings",
+                return_value=mock_settings,
+            ),
+        ):
+            picker = WslDirectoryPicker(distro_paths)
+
+        self.assertEqual(
+            picker._selected_path, r"\\wsl.localhost\Ubuntu\home\zsw"
+        )
+        self.assertEqual(
+            picker._path_edit.text(), r"\\wsl.localhost\Ubuntu\home\zsw"
+        )
+        self.assertTrue(picker._select_btn.isEnabled())
