@@ -131,6 +131,12 @@ def _create_file_status_icon(color):
     return QtGui.QIcon(pixmap)
 
 
+from anylabeling.views.labeling.utils.wsl import (
+    is_user_distro as _is_user_distro_impl,
+    list_directory_entries as _list_directory_entries_impl,
+)
+
+
 class WslDirectoryPicker(QtWidgets.QDialog):
     """Directory picker for WSL UNC paths (\\\\wsl.localhost\\<distro>\\...).
 
@@ -193,10 +199,7 @@ class WslDirectoryPicker(QtWidgets.QDialog):
 
     @staticmethod
     def _is_user_distro(path, name):
-        home_path = osp.join(path, "home")
-        if osp.isdir(home_path) and os.listdir(home_path):
-            return True
-        return "docker" not in name.lower()
+        return _is_user_distro_impl(path, name)
 
     def _build_tree(self, distro_paths):
         icon_provider = QtWidgets.QFileIconProvider()
@@ -215,19 +218,17 @@ class WslDirectoryPicker(QtWidgets.QDialog):
             self._tree.addTopLevelItem(item)
 
     def _populate_children(self, item, path):
-        try:
-            entries = sorted(os.listdir(path))
-        except OSError:
+        entries = _list_directory_entries_impl(path)
+        if entries is None:
             return
         for entry in entries:
             full_path = osp.join(path, entry)
-            if osp.isdir(full_path):
-                child = QtWidgets.QTreeWidgetItem([entry])
-                child.setData(0, Qt.ItemDataRole.UserRole, full_path)
-                child.setChildIndicatorPolicy(
-                    QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
-                )
-                item.addChild(child)
+            child = QtWidgets.QTreeWidgetItem([entry])
+            child.setData(0, Qt.ItemDataRole.UserRole, full_path)
+            child.setChildIndicatorPolicy(
+                QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
+            )
+            item.addChild(child)
 
     def _on_expanded(self, item):
         path = item.data(0, Qt.ItemDataRole.UserRole)

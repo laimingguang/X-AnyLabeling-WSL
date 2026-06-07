@@ -1,6 +1,6 @@
 <div align="center">
   <p>
-    <a href="https://github.com/CVHub520/X-AnyLabeling/" target="_blank">
+    <a href="https://github.com/laimingguang/X-AnyLabeling/" target="_blank">
       <img alt="X-AnyLabeling" height="200px" src="https://github.com/user-attachments/assets/0714a182-92bd-4b47-b48d-1c5d7c225176"></a>
   </p>
 
@@ -16,6 +16,8 @@
     <a href=""><img src="https://img.shields.io/github/downloads/CVHub520/X-AnyLabeling/total?label=downloads"></a>
     <a href="https://modelscope.cn/collections/X-AnyLabeling-7b0e1798bcda43"><img src="https://img.shields.io/badge/modelscope-X--AnyLabeling-6750FF?link=https%3A%2F%2Fmodelscope.cn%2Fcollections%2FX-AnyLabeling-7b0e1798bcda43"></a>
 </p>
+
+> **🔥 WSL 增强 Fork** — 本 fork 新增了对 WSL（Windows Subsystem for Linux）目录的原生浏览支持。如果你在 Windows 上使用 WSL2 + Ubuntu，原版 `QFileDialog` 无法导航 `\\wsl.localhost\` 路径。本 fork 内置了自定义 `WslDirectoryPicker` 对话框，可直接浏览和选择 WSL 中的数据集目录。详见[新功能](#🥳-新功能)。
 
 ![](https://user-images.githubusercontent.com/18329471/234640541-a6a65fbc-d7a5-4ec3-9b65-55305b01a7aa.png)
 
@@ -91,6 +93,7 @@
 
 ## 🥳 新功能
 
+- `2026-06-07`: **[WSL 增强]** 新增自定义 `WslDirectoryPicker` 对话框。Windows 用户在使用 WSL2 时，系统原生的 `QFileDialog` 无法浏览 `\\wsl.localhost` UNC 路径，导致无法从 Windows 端打开 WSL 中的数据集。本 fork 用一个自定义树形视图替代了系统文件夹对话框，通过 `wsl -l -q` 枚举 WSL 发行版、自动过滤非用户发行版，并支持延迟加载子目录。无需再使用任何变通方案。
 - `2026-06-06`: 新增 [LocateAnything](./examples/grounding/locateanything/README.md) 支持，覆盖开放词汇视觉定位、指点定位和场景文本检测。
 - `2026-05-23`: 新增支持 [视频分类器](./docs/zh_cn/video_classifier.md) 标注面板，支持时间轴片段分类、片段描述、AI 自动切分视频与描述生成。
 - `2026-04-26`: 新增客户端（本地 ONNX）支持 [SAM 3](./examples/grounding/sam3/README.md) 文本驱动分割。
@@ -124,6 +127,7 @@
 - 支持一键导入和导出多种标签格式，如 `COCO`、`VOC`、`YOLO`、`DOTA`、`MOT`、`MASK`、`PPOCR`、`MMGF`、`VLM-R1`、`ShareGPT` 等；
 - 支持多种图像标注样式，包括 `多边形`、`矩形`、`长方体`、`旋转框`、`圆形`、`线条`、`点`，以及 `文本检测`、`识别` 和 `KIE` 标注；
 - 支持各类视觉任务，如`图像分类`、`目标检测`、`实例分割`、`姿态估计`、`旋转检测`、`多目标跟踪`、`光学字符识别`、`图像文本描述`、`车道线检测`、`分割一切`、`视觉问答`、`文档解析`等。
+- **Windows/WSL**：原生支持 WSL2 `\\wsl.localhost` 目录浏览（本 fork 新增的自定义 `WslDirectoryPicker` 对话框）。
 
 ## 模型库
 
@@ -214,7 +218,7 @@
 
 在参与前请阅读我们的 [贡献指南](./CONTRIBUTING.md)，并在提交 Pull Request 前确认您已同意 [贡献者许可协议 (CLA)](./CLA.md)。
 
-如果你觉得这个项目有帮助，请点亮右上角的⭐星标⭐。如有任何问题或疑问，欢迎[创建 issue](https://github.com/CVHub520/X-AnyLabeling/issues) 或发送邮件至 cv_hub@163.com。
+如果你觉得这个项目有帮助，请点亮右上角的⭐星标⭐。如有任何问题或疑问，欢迎[创建 issue](https://github.com/laimingguang/X-AnyLabeling/issues) 或发送邮件至 cv_hub@163.com。
 
 衷心感谢每一位为项目贡献力量的朋友 🙏
 

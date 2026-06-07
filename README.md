@@ -1,6 +1,6 @@
 <div align="center">
   <p>
-    <a href="https://github.com/CVHub520/X-AnyLabeling/" target="_blank">
+    <a href="https://github.com/laimingguang/X-AnyLabeling/" target="_blank">
       <img alt="X-AnyLabeling" height="200px" src="https://github.com/user-attachments/assets/0714a182-92bd-4b47-b48d-1c5d7c225176"></a>
   </p>
 
@@ -11,12 +11,13 @@
 <p align="center">
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-LGPL%20v3-blue.svg"></a>
     <a href=""><img src="https://img.shields.io/github/v/release/CVHub520/X-AnyLabeling?color=ffa"></a>
-    <a href=""><img src="https://img.shields.io/pypi/v/x-anylabeling-cvhub?logo=pypi&logoColor=white"></a>
     <a href=""><img src="https://img.shields.io/badge/python-3.11+-aff.svg"></a>
     <a href=""><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
     <a href=""><img src="https://img.shields.io/github/downloads/CVHub520/X-AnyLabeling/total?label=downloads"></a>
     <a href="https://modelscope.cn/collections/X-AnyLabeling-7b0e1798bcda43"><img src="https://img.shields.io/badge/modelscope-X--AnyLabeling-6750FF?link=https%3A%2F%2Fmodelscope.cn%2Fcollections%2FX-AnyLabeling-7b0e1798bcda43"></a>
 </p>
+
+> **🔥 WSL Enhancement Fork** — This fork adds native WSL (Windows Subsystem for Linux) directory browsing support. If you use WSL2 with Ubuntu on Windows, the original `QFileDialog` cannot navigate `\\wsl.localhost\` paths. This fork ships a custom `WslDirectoryPicker` that lets you browse your WSL datasets directly. See [What's New](#-whats-new) for details.
 
 ![](https://user-images.githubusercontent.com/18329471/234640541-a6a65fbc-d7a5-4ec3-9b65-55305b01a7aa.png)
 
@@ -92,6 +93,7 @@
 
 ## 🥳 What's New
 
+- `2026-06-07`: **[WSL Enhancement]** Added a custom `WslDirectoryPicker` dialog for Windows users. The Qt-native `QFileDialog` cannot browse `\\wsl.localhost` UNC paths, making it impossible to open WSL2 datasets from Windows. This fork replaces the folder dialog with a custom tree view that enumerates WSL distros via `wsl -l -q`, auto-filters non-user distros, and supports lazy directory loading. No more workarounds needed.
 - `2026-06-06`: Added [LocateAnything](./examples/grounding/locateanything/README.md) support for open-vocabulary grounding, pointing, and scene text detection.
 - `2026-05-23`: Added the [Video Classifier](./docs/en/video_classifier.md) annotation panel with timeline segment classification, segment descriptions, AI-assisted video segmentation and description generation.
 - `2026-04-26`: Added client-side (local ONNX) support for [SAM 3](./examples/grounding/sam3/README.md) text-grounded segmentation.
@@ -125,6 +127,7 @@ Also, we highly recommend trying out [X-AnyLabeling-Server](https://github.com/C
 - Supports import/export for formats like `COCO`, `VOC`, `YOLO`, `DOTA`, `MOT`, `MASK`, `PPOCR`, `MMGD`, `VLM-R1`, `ShareGPT`.
 - Handles tasks like `classification`, `detection`, `segmentation`, `caption`, `rotation`, `tracking`, `estimation`, `ocr`, `vqa`, `grounding`, `document parsing` and so on.
 - Supports diverse annotation styles: `polygons`, `rectangles`, `cuboids`, `rotated boxes`, `quadrilaterals`, `circles`, `lines`, `line strips`, `points`, and annotations for `text detection`, `recognition`, and `KIE`.
+- **Windows/WSL**: Native WSL2 (`\\wsl.localhost`) directory browsing via custom `WslDirectoryPicker` dialog (this fork).
 
 ## Model library
 
@@ -215,7 +218,7 @@ We believe in open collaboration! **X‑AnyLabeling** continues to grow with the
 
 To get started, please read our [Contributing Guide](./CONTRIBUTING.md) and make sure to agree to the [Contributor License Agreement (CLA)](./CLA.md) before submitting a pull request.
 
-If you find this project helpful, please consider giving it a ⭐️ star! Have questions or suggestions? Open an [issue](https://github.com/CVHub520/X-AnyLabeling/issues) or email us at cv_hub@163.com.
+If you find this project helpful, please consider giving it a ⭐️ star! Have questions or suggestions? Open an [issue](https://github.com/laimingguang/X-AnyLabeling/issues) or email us at cv_hub@163.com.
 
 A huge thank you 🙏 to everyone helping to make X‑AnyLabeling better.
 
