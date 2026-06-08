@@ -19,6 +19,7 @@ from anylabeling.views.labeling.widgets import Popup
 from anylabeling.views.labeling.utils.qt import new_icon_path
 from anylabeling.views.labeling.utils.style import *
 from anylabeling.views.labeling.utils.export import _check_filename_exist
+from anylabeling.views.labeling.utils.wsl import get_existing_directory
 
 
 class UploadPPOCRThread(QThread):
@@ -455,13 +456,9 @@ def upload_mmgd_annotation(self, LABEL_OPACITY):
     )
 
     def browse_json_folder():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Upload Folder"),
-            None,
-            QtWidgets.QFileDialog.Option.ShowDirsOnly
-            | QtWidgets.QFileDialog.Option.DontResolveSymlinks
-            | QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -809,13 +806,10 @@ def upload_mask_annotation(self, LABEL_OPACITY):
     path_edit.setText(osp.dirname(osp.dirname(self.filename)))
 
     def browse_upload_folder():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Upload Folder"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.ShowDirsOnly
-            | QtWidgets.QFileDialog.Option.DontResolveSymlinks
-            | QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -981,13 +975,10 @@ def upload_dota_annotation(self):
     path_edit.setText(osp.dirname(osp.dirname(self.filename)))
 
     def browse_upload_folder():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Upload Folder"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.ShowDirsOnly
-            | QtWidgets.QFileDialog.Option.DontResolveSymlinks
-            | QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -1221,13 +1212,10 @@ def upload_voc_annotation(self, mode):
     path_edit.setText(osp.dirname(osp.dirname(self.filename)))
 
     def browse_upload_folder():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Upload Folder"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.ShowDirsOnly
-            | QtWidgets.QFileDialog.Option.DontResolveSymlinks
-            | QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -1419,13 +1407,10 @@ def upload_yolo_annotation(self, mode, LABEL_OPACITY):
     path_edit.setText(osp.dirname(osp.dirname(self.filename)))
 
     def browse_upload_folder():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Upload Folder"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.ShowDirsOnly
-            | QtWidgets.QFileDialog.Option.DontResolveSymlinks
-            | QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)

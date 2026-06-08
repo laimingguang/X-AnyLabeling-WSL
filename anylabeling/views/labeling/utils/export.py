@@ -18,6 +18,7 @@ from anylabeling.views.labeling.logger import logger
 from anylabeling.views.labeling.widgets import Popup
 from anylabeling.views.labeling.utils.qt import new_icon_path
 from anylabeling.views.labeling.utils.style import *
+from anylabeling.views.labeling.utils.wsl import get_existing_directory
 
 
 class ExportThread(QThread):
@@ -153,11 +154,10 @@ def export_yolo_annotation(self, mode):
     path_edit.setPlaceholderText(self.tr("Select Export Directory"))
 
     def browse_export_path():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Export Directory"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -338,11 +338,10 @@ def export_voc_annotation(self, mode):
     path_edit.setPlaceholderText(self.tr("Select Export Directory"))
 
     def browse_export_path():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Export Directory"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -562,11 +561,10 @@ def export_coco_annotation(self, mode):
     path_edit.setPlaceholderText(self.tr("Select Export Directory"))
 
     def browse_export_path():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Export Directory"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -721,11 +719,10 @@ def export_dota_annotation(self):
     path_edit.setPlaceholderText(self.tr("Select Export Directory"))
 
     def browse_export_path():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Export Directory"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -902,11 +899,10 @@ def export_mask_annotation(self):
     path_edit.setPlaceholderText(self.tr("Select Export Directory"))
 
     def browse_export_path():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Export Directory"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -1078,11 +1074,10 @@ def export_mot_annotation(self, mode):
     path_edit.setPlaceholderText(self.tr("Select Export Directory"))
 
     def browse_export_path():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Export Directory"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
@@ -1235,11 +1230,10 @@ def export_pporc_annotation(self, mode):
     path_edit.setPlaceholderText(self.tr("Select Export Directory"))
 
     def browse_export_path():
-        path = QtWidgets.QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Export Directory"),
             path_edit.text(),
-            QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)

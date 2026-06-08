@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 from anylabeling.views.labeling.logger import logger
 from anylabeling.views.labeling.widgets import Popup
 from anylabeling.views.labeling.utils.qt import new_icon_path
+from anylabeling.views.labeling.utils.wsl import get_existing_directory
 from anylabeling.views.labeling.utils.style import (
     get_cancel_btn_style,
     get_export_option_style,
@@ -254,11 +255,10 @@ def save_crop(self):
     path_edit.setPlaceholderText(self.tr("Select Save Directory"))
 
     def browse_export_path():
-        path = QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select Save Directory"),
             path_edit.text(),
-            QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             path_edit.setText(path)
