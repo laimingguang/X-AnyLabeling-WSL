@@ -10,50 +10,40 @@
 
 # WSL-Enhanced X-AnyLabeling
 
-本 fork 在 Windows 原生文件夹选择对话框中**使 WSL2 数据集目录可见**——无需变通方案，无需 WSLG 的模糊渲染，无需手动映射网络驱动器。
+这是一个 [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) 的 fork，只做了一件事：**让 Windows 文件夹选择弹窗能看到你的 WSL 数据集目录。** 没有多余的对话框，没有变通方案，不需要配置。
 
 ---
 
-## 问题
+## 你是不是也遇到过这个情况
 
-Windows Shell 的 `IFileOpenDialog` 在被 `QFileDialog.getExistingDirectory` 调用时会设置 `FOS_FORCEFILESYSTEM` 标志。该标志会**隐藏导航栏中的 WSL Linux 节点**（`\\wsl.localhost`）——这是 Windows 的已知限制（[microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079)，已开放超过 3 年；[microsoft/WindowsAppSDK#6284](https://github.com/microsoft/WindowsAppSDK/issues/6284)）。
+你的深度学习跑在 **WSL2** 上——CUDA 直通、ext4 文件系统、训练框架都好好的。但跑 X-AnyLabeling 的时候，你希望在 **Windows 原生环境** 下运行（4K 屏清晰、字体渲染正常、没有输入延迟）。一打开文件夹选择器，WSL 的目录全都不见了。`\\wsl.localhost\Ubuntu\home\...` 就像不存在一样。
 
-实际后果：如果你在 WSL2 上进行深度学习训练（CUDA GPU-PV、ext4 文件系统、训练框架原生支持），同时在 Windows 上使用 X-AnyLabeling 以获得清晰的 HiDPI 渲染，你将无法通过标准文件夹对话框浏览到 WSL 数据集。
+上游作者已经在 issue 里确认了这个方案：在 Windows 原生跑，不要在 WSLG 里跑（[#811](https://github.com/CVHub520/X-AnyLabeling/issues/811)）。但这把你晾在半路了——你的数据全在 WSL 里，Windows 弹窗却看不到。
 
-## 解决方案
+## 我们做了什么
 
-本 fork 采用了与 **JetBrains JBR PR #497** 相同的方案：直接通过 Python ctypes 打开 `IFileOpenDialog`，使用 `FOS_PICKFOLDERS` 但**不加** `FOS_FORCEFILESYSTEM`。WSL Linux 节点自然显示在侧边栏——无需自定义对话框，无需 Shell 命名空间破解，无需额外依赖。
+WSL 文件夹现在会正常显示在文件夹选择器的左侧导航栏里——就是那个你熟悉的 Windows 原生弹窗，只是去掉了隐藏 Linux 文件的限制。
 
-### 实现原理
+不需要自定义对话框，不需要 `net use` 映射网络驱动器，不需要切回 WSLG。
 
-- **`pick_folder()`**——轻量级 ctypes 封装，调用 `CoCreateInstance(CLSID_FileOpenDialog)`。通过 `IFileDialog::GetOptions` 获取当前选项，添加 `FOS_PICKFOLDERS`，然后调用 `IFileDialog::Show`。`FOS_FORCEFILESYSTEM` 标志从未设置。返回选中路径或 `None`。
+| 你能看到 WSL 文件夹的地方 | 对应功能 |
+|---------------------------|----------|
+| 打开目录 / 更改输出目录 / 对比视图 | 标注主界面 |
+| CSV 导出目录 | 概览对话框 |
+| 导出目录 | AI 聊天对话框 |
+| 导出目录 | 分类器对话框 |
+| 输出目录 | 视频分类对话框 |
+| 数据文件（分类任务） | 训练对话框 |
 
-- **`get_existing_directory()`**——`QFileDialog.getExistingDirectory` 的即插即用替换方案，签名完全一致。Windows 上委托给 `pick_folder()`，非 Windows 上回退到标准 Qt 实现。返回选中路径或空字符串。
+## 不用 WSL 的人会受影响吗？
 
-- **`utils/wsl.py`**——全部实现就在这里：约 130 行纯标准库代码（`ctypes`、`os`、`typing`）。零外部依赖。
+**不会。** 文件夹弹窗看起来和之前完全一样。改动只影响侧边栏的内容——你没有 WSL 的话，什么也不会多出来。
 
-- **替换了 8 处原生对话框调用点**——所有使用原生 `IFileOpenDialog`（未设置 `DontUseNativeDialog`）的文件夹选择器现在都通过 `get_existing_directory()`：
+**Linux 和 macOS** 上这个 fork 的行为和原版 X-AnyLabeling 完全一致。没有任何区别。
 
-  | 位置 | 用途 |
-  |------|------|
-  | `label_widget.py` | 打开文件夹、更改输出目录、对比视图 |
-  | `overview_dialog.py` | CSV 导出目录 |
-  | `chatbot_dialog.py` | 聊天导出目录 |
-  | `classifier/dialogs.py` | 分类器导出目录 |
-  | `video_classifier/export_dialog.py` | 视频分类输出目录 |
-  | `ultralytics_dialog.py` | 训练数据集（分类任务） |
+## 致谢
 
-- **13 处 `DontUseNativeDialog` 调用点保持不变**——这些调用点原本就使用 Qt 自定义对话框渲染（不涉及 `IFileOpenDialog`），因此从未出现 WSL 问题。
-
-## 行为保证
-
-| 场景 | 行为 |
-|------|------|
-| Windows + WSL | 原生对话框，WSL Linux 节点可见 |
-| Windows（无 WSL） | 原生对话框，无明显变化 |
-| Linux / macOS | 标准 `QFileDialog.getExistingDirectory`（与上游一致）|
-| 用户取消对话框 | 返回空字符串，无二次弹窗回退 |
-| COM 不可用 | 回退到 `QFileDialog.getExistingDirectory` |
+技术方案参考了 **JetBrains JBR PR #497**——和 JetBrains 家 IDE（IntelliJ、PyCharm 等）在原生文件对话框中显示 WSL 文件用的是同一个方法。这个修复针对的 Windows API 限制（[microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079)）已经挂了 3 年多无人修复。
 
 ## 安装
 
@@ -63,16 +53,15 @@ cd X-AnyLabeling
 uv tool install --editable .
 ```
 
-运行测试套件：
+运行方式和原版一样：
 
 ```bash
-uv tool install --editable . --with pytest
-& "$env:USERPROFILE\AppData\Roaming\uv\tools\x-anylabeling-cvhub\Scripts\pytest.exe" tests\test_wsl_picker.py -v
+python anylabeling/app.py
 ```
 
-## 与上游的关系
+## 与原版的关系
 
-除 WSL 文件夹选择器修复（`utils/wsl.py` + 8 处调用点 + 测试）外，其余部分与上游完全一致。同步最新上游变更：
+除文件夹选择器修复外，其余部分和原始 [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) 完全一致。同步上游更新：
 
 ```bash
 git remote add upstream https://github.com/CVHub520/X-AnyLabeling.git

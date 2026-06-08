@@ -10,50 +10,40 @@
 
 # WSL-Enhanced X-AnyLabeling
 
-A fork of [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) that makes WSL2 dataset directories visible in native Windows folder selection dialogs — no workarounds, no WSLG blur, no manual network drive mapping.
+A fork of [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) that does one thing: **makes your WSL dataset folders visible in the Windows file picker dialog.** That's it. No extra dialogs, no workarounds, no configuration.
 
 ---
 
-## The Problem
+## If This Sounds Familiar
 
-Windows Shell's `IFileOpenDialog` sets the `FOS_FORCEFILESYSTEM` flag when invoked via `QFileDialog.getExistingDirectory`. This flag **hides the WSL Linux node** (`\\wsl.localhost`) from the folder picker's navigation pane — a known Windows limitation ([microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079), still open for 3+ years; [microsoft/WindowsAppSDK#6284](https://github.com/microsoft/WindowsAppSDK/issues/6284)).
+You train on **WSL2** — CUDA works, ext4 is fast, everything runs great. But when you run X-AnyLabeling on **Windows** (where the UI is crisp on high-DPI screens, fonts render correctly, and there's no input lag), you click "Open Folder" and… your WSL directories are simply not there. `\\wsl.localhost\Ubuntu\home\...` might as well be invisible.
 
-The practical consequence: if you run your deep learning on WSL2 (where CUDA GPU-PV, ext4 filesystems, and training frameworks work natively) but use X-AnyLabeling on Windows for crisp HiDPI rendering, you cannot browse to your WSL datasets through the standard folder dialog.
+The upstream maintainer has confirmed this workflow: run the app on Windows natively, not inside WSLG ([#811](https://github.com/CVHub520/X-AnyLabeling/issues/811)). But that leaves you with no way to browse to your WSL dataset.
 
-## The Solution
+## What This Fork Does
 
-This fork follows the same approach as **JetBrains JBR PR #497**: it opens `IFileOpenDialog` directly via Python ctypes with `FOS_PICKFOLDERS` but **without** `FOS_FORCEFILESYSTEM`. The WSL Linux node appears naturally in the sidebar — no custom dialog, no shell namespace hacking, no extra dependencies.
+WSL folders now show up in the folder picker's sidebar — the same standard Windows dialog you already know, just without the restriction that was hiding your Linux files.
 
-### How it works
+No custom dialog. No `net use` drive mapping. No switching back to WSLG.
 
-- **`pick_folder()`** — a lightweight ctypes wrapper around `CoCreateInstance(CLSID_FileOpenDialog)`. It gets the dialog's current options via `IFileDialog::GetOptions`, adds `FOS_PICKFOLDERS`, and calls `IFileDialog::Show`. The `FOS_FORCEFILESYSTEM` flag is never set. Returns the selected path or `None`.
+| Where you'll see WSL folders | What it is |
+|------------------------------|------------|
+| Open Folder / Change Output Dir / Compare View | Main labeling interface |
+| CSV Export | Overview dialog |
+| Export Directory | AI Chat dialog |
+| Export Directory | Classifier dialog |
+| Output Directory | Video Classification dialog |
+| Data File (Classify tasks) | Training dialog |
 
-- **`get_existing_directory()`** — a drop-in replacement for `QFileDialog.getExistingDirectory` with an identical signature. On Windows it delegates to `pick_folder()`; on non-Windows it falls through to the standard Qt implementation. Returns the selected path or empty string.
+## Does This Affect Me If I Don't Use WSL?
 
-- **`utils/wsl.py`** — the entire implementation lives here: ~130 lines of pure stdlib (`ctypes`, `os`, `typing`). No external dependencies.
+**No.** The folder picker looks exactly the same as before. The change only affects what's listed in the sidebar — if you don't have WSL installed, nothing new appears.
 
-- **8 native dialog call sites replaced** — all folder pickers that used the native `IFileOpenDialog` (without `DontUseNativeDialog`) now route through `get_existing_directory()`:
+On **Linux and macOS**, this fork behaves identically to the original X-AnyLabeling. Zero difference.
 
-  | Location | Usage |
-  |----------|-------|
-  | `label_widget.py` | Open Folder, Change Output Directory, Compare View |
-  | `overview_dialog.py` | CSV Export Directory |
-  | `chatbot_dialog.py` | Chat Export Directory |
-  | `classifier/dialogs.py` | Classifier Export Directory |
-  | `video_classifier/export_dialog.py` | Video Classification Output |
-  | `ultralytics_dialog.py` | Training Dataset (Classify) |
+## Acknowledgments
 
-- **13 `DontUseNativeDialog` call sites unchanged** — these already used Qt's custom dialog renderer, which does not involve `IFileOpenDialog` and therefore never had the WSL problem.
-
-## Behavioral Guarantees
-
-| Scenario | Behavior |
-|----------|----------|
-| Windows + WSL | Native dialog with WSL Linux node visible |
-| Windows (no WSL) | Native dialog, no visible change |
-| Linux / macOS | Standard `QFileDialog.getExistingDirectory` (identical to upstream) |
-| User cancels dialog | Returns empty string, no double-dialog fallback |
-| COM unavailable | Falls through to `QFileDialog.getExistingDirectory` |
+The technical approach is based on **JetBrains JBR PR #497** — the same method JetBrains uses in their IDEs (IntelliJ, PyCharm, etc.) to show WSL files in native file dialogs. The fix addresses a known Windows API limitation ([microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079), open since 2021).
 
 ## Install
 
@@ -63,16 +53,15 @@ cd X-AnyLabeling
 uv tool install --editable .
 ```
 
-To run the test suite:
+Then run it the same way as the original:
 
 ```bash
-uv tool install --editable . --with pytest
-& "$env:USERPROFILE\AppData\Roaming\uv\tools\x-anylabeling-cvhub\Scripts\pytest.exe" tests\test_wsl_picker.py -v
+python anylabeling/app.py
 ```
 
 ## Relationship to Upstream
 
-Everything except the WSL folder picker fix (`utils/wsl.py` + 8 call sites + tests) is identical to upstream. To sync with the latest upstream changes:
+Everything except the folder picker fix is identical to the original [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling). To sync with upstream updates:
 
 ```bash
 git remote add upstream https://github.com/CVHub520/X-AnyLabeling.git
