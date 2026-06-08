@@ -10,40 +10,40 @@
 
 # WSL-Enhanced X-AnyLabeling
 
-A fork of [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) that does one thing: **makes your WSL dataset folders visible in the Windows file picker dialog.** That's it. No extra dialogs, no workarounds, no configuration.
+A fork of [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) that restores WSL2 directory visibility in native Windows folder picker dialogs.
 
----
+## Background
 
-## If This Sounds Familiar
+Training on WSL2 is standard practice for Windows-based ML engineers — CUDA GPU-PV, ext4 filesystems, and training frameworks all work natively.
 
-You train on **WSL2** — CUDA works, ext4 is fast, everything runs great. But when you run X-AnyLabeling on **Windows** (where the UI is crisp on high-DPI screens, fonts render correctly, and there's no input lag), you click "Open Folder" and… your WSL directories are simply not there. `\\wsl.localhost\Ubuntu\home\...` might as well be invisible.
+The GUI side, however, has a known tradeoff. WSLG (WSL GUI) delivers noticeably blurry rendering on high-DPI displays due to its RDP-based pipeline. The upstream maintainer has explicitly recommended running X-AnyLabeling natively on Windows rather than inside WSLG ([#811](https://github.com/CVHub520/X-AnyLabeling/issues/811)).
 
-The upstream maintainer has confirmed this workflow: run the app on Windows natively, not inside WSLG ([#811](https://github.com/CVHub520/X-AnyLabeling/issues/811)). But that leaves you with no way to browse to your WSL dataset.
+## The Problem
 
-## What This Fork Does
+When running X-AnyLabeling on Windows natively, the standard folder picker dialog hides `\\wsl.localhost` and all its child directories. This is not a bug in X-AnyLabeling or Qt — it is a known Windows Shell API behavior: `QFileDialog.getExistingDirectory` sets the `FOS_FORCEFILESYSTEM` flag, which suppresses non-filesystem namespace entries. Microsoft has acknowledged this limitation ([microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079), open since 2021).
 
-WSL folders now show up in the folder picker's sidebar — the same standard Windows dialog you already know, just without the restriction that was hiding your Linux files.
+## The Fix
 
-No custom dialog. No `net use` drive mapping. No switching back to WSLG.
+The `FOS_FORCEFILESYSTEM` flag is removed from the dialog options. The WSL Linux node then appears in the sidebar naturally — the same dialog, the same behavior, no extra dependencies.
 
-| Where you'll see WSL folders | What it is |
-|------------------------------|------------|
+The same approach is used by JetBrains across IntelliJ, PyCharm, and all other IDEs ([JBR PR #497](https://github.com/JetBrains/JetBrainsRuntime/pull/497)).
+
+## Scope
+
+This affects 8 folder picker dialogs:
+
+| Dialog | Location |
+|--------|----------|
 | Open Folder / Change Output Dir / Compare View | Main labeling interface |
-| CSV Export | Overview dialog |
+| CSV Export Directory | Overview dialog |
 | Export Directory | AI Chat dialog |
 | Export Directory | Classifier dialog |
 | Output Directory | Video Classification dialog |
-| Data File (Classify tasks) | Training dialog |
+| Dataset Directory (Classify tasks) | Training dialog |
 
-## Does This Affect Me If I Don't Use WSL?
+## Non-WSL Users
 
-**No.** The folder picker looks exactly the same as before. The change only affects what's listed in the sidebar — if you don't have WSL installed, nothing new appears.
-
-On **Linux and macOS**, this fork behaves identically to the original X-AnyLabeling. Zero difference.
-
-## Acknowledgments
-
-The technical approach is based on [**JetBrains JBR PR #497**](https://github.com/JetBrains/JetBrainsRuntime/pull/497) — the same method JetBrains uses in their IDEs (IntelliJ, PyCharm, etc.) to show WSL files in native file dialogs. The fix addresses a known Windows API limitation ([microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079), open since 2021).
+No behavioral change. Linux and macOS run the standard `QFileDialog.getExistingDirectory` — identical to upstream. Windows without WSL sees no visible difference in the dialog.
 
 ## Install
 
@@ -51,17 +51,12 @@ The technical approach is based on [**JetBrains JBR PR #497**](https://github.co
 git clone https://github.com/laimingguang/X-AnyLabeling-WSL.git
 cd X-AnyLabeling
 uv tool install --editable .
-```
-
-Then run it the same way as the original:
-
-```bash
 python anylabeling/app.py
 ```
 
 ## Relationship to Upstream
 
-Everything except the folder picker fix is identical to the original [CVHub520/X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling). To sync with upstream updates:
+Everything except the folder picker fix is identical to the original repository. To sync:
 
 ```bash
 git remote add upstream https://github.com/CVHub520/X-AnyLabeling.git
