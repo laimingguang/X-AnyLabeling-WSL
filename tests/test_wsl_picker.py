@@ -1,3 +1,4 @@
+import ctypes
 import importlib.util
 import os
 import sys
@@ -53,7 +54,7 @@ class TestPickFolderNonWindows(unittest.TestCase):
     def test_skips_com_on_non_windows(self):
         with (
             patch.object(_wsl_mod.os, "name", "posix"),
-            patch.object(_wsl_mod, "_ole32") as mock_ole32,
+            patch("ctypes.windll.ole32") as mock_ole32,
         ):
             pick_folder("title", 0)
             mock_ole32.CoCreateInstance.assert_not_called()
@@ -72,7 +73,7 @@ class TestPickFolderComFailure(unittest.TestCase):
         with (
             patch.object(_wsl_mod.os, "name", "nt"),
             patch.object(
-                _wsl_mod._ole32, "CoCreateInstance", return_value=0x80004005
+                ctypes.windll.ole32, "CoCreateInstance", return_value=0x80004005
             ),
         ):
             result = pick_folder("title", 0)
@@ -82,7 +83,7 @@ class TestPickFolderComFailure(unittest.TestCase):
         with (
             patch.object(_wsl_mod.os, "name", "nt"),
             patch.object(
-                _wsl_mod._ole32, "CoCreateInstance", return_value=0x80004005
+                ctypes.windll.ole32, "CoCreateInstance", return_value=0x80004005
             ),
             patch.object(_wsl_mod.os.path, "isdir") as mock_isdir,
         ):
@@ -93,8 +94,6 @@ class TestPickFolderComFailure(unittest.TestCase):
 @unittest.skipUnless(PYQT_AVAILABLE, "PyQt6 required")
 class TestGetExistingDirectory(unittest.TestCase):
     """get_existing_directory behavior independent of pick_folder internals."""
-
-    # ── Windows path ──────────────────────────────────────────
 
     def test_windows_returns_path_from_pick_folder(self):
         with (
@@ -120,8 +119,6 @@ class TestGetExistingDirectory(unittest.TestCase):
         ):
             get_existing_directory(caption="Test")
             mock_qf.assert_not_called()
-
-    # ── Parent / hwnd extraction ──────────────────────────────
 
     def test_qwidget_parent_extracts_winid(self):
         parent = MagicMock(spec=QWidget)
@@ -169,8 +166,6 @@ class TestGetExistingDirectory(unittest.TestCase):
                 get_existing_directory(parent=parent, caption="Test")
                 mock_pf.assert_called_with("Test", 0, "")
 
-    # ── start_dir forwarding ──────────────────────────────────
-
     def test_start_dir_forwarded_to_pick_folder(self):
         with (
             patch.object(_wsl_mod.os, "name", "nt"),
@@ -186,8 +181,6 @@ class TestGetExistingDirectory(unittest.TestCase):
         ):
             get_existing_directory(caption="Test", directory="")
             mock_pf.assert_called_once_with("Test", 0, "")
-
-    # ── Caption ───────────────────────────────────────────────
 
     def test_empty_caption_uses_default(self):
         with (
@@ -205,8 +198,6 @@ class TestGetExistingDirectory(unittest.TestCase):
         ):
             get_existing_directory(caption="My Custom Title")
             mock_pf.assert_called_once_with("My Custom Title", 0, "")
-
-    # ── Non-Windows path ──────────────────────────────────────
 
     def test_non_windows_delegates_to_qt(self):
         with (

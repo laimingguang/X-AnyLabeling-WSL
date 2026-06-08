@@ -1,5 +1,4 @@
 import os
-import sys
 import ctypes
 import ctypes.wintypes
 from typing import Optional
@@ -28,8 +27,10 @@ FOS_PICKFOLDERS = 0x00000020
 FOS_FORCEFILESYSTEM = 0x00000040
 SIGDN_FILESYSPATH = 0x80058000
 
-_ole32 = ctypes.windll.ole32
-_shell32 = ctypes.windll.shell32
+# IFileDialog vtable: IUnknown(3) + IModalWindow(1) + IFileDialog(24) = 28 methods
+_IFD_VTABLE_SIZE = 28
+# IShellItem vtable: IUnknown(3) + IShellItem(3) = 6 methods
+_ISI_VTABLE_SIZE = 6
 
 
 def _com_release(p):
@@ -57,8 +58,11 @@ def pick_folder(title: str = "Select Folder", hwnd: int = 0, start_dir: str = ""
     if os.name != "nt":
         return None
 
+    ole32 = ctypes.windll.ole32
+    shell32 = ctypes.windll.shell32
+
     pDialog = ctypes.c_void_p()
-    hr = _ole32.CoCreateInstance(
+    hr = ole32.CoCreateInstance(
         ctypes.byref(_CLSID_FileOpenDialog),
         None,
         1,
@@ -71,7 +75,7 @@ def pick_folder(title: str = "Select Folder", hwnd: int = 0, start_dir: str = ""
     vtable_ptr = ctypes.cast(pDialog, ctypes.POINTER(ctypes.c_void_p))[0]
     vtable = ctypes.cast(
         vtable_ptr,
-        ctypes.POINTER(ctypes.c_void_p * 28),
+        ctypes.POINTER(ctypes.c_void_p * _IFD_VTABLE_SIZE),
     ).contents
 
     try:
@@ -88,7 +92,7 @@ def pick_folder(title: str = "Select Folder", hwnd: int = 0, start_dir: str = ""
         if start_dir and os.path.isdir(start_dir):
             SetFolder = _get_vtable_method(vtable, 12, ctypes.c_long, ctypes.c_void_p, ctypes.c_void_p)
             pStartItem = ctypes.c_void_p()
-            hr = _shell32.SHCreateItemFromParsingName(
+            hr = shell32.SHCreateItemFromParsingName(
                 ctypes.wintypes.LPCWSTR(start_dir),
                 None,
                 ctypes.byref(_IID_IShellItem),
@@ -113,7 +117,7 @@ def pick_folder(title: str = "Select Folder", hwnd: int = 0, start_dir: str = ""
             item_vtable_ptr = ctypes.cast(pItem, ctypes.POINTER(ctypes.c_void_p))[0]
             item_vtable = ctypes.cast(
                 item_vtable_ptr,
-                ctypes.POINTER(ctypes.c_void_p * 6),
+                ctypes.POINTER(ctypes.c_void_p * _ISI_VTABLE_SIZE),
             ).contents
 
             GetDisplayName = _get_vtable_method(
@@ -124,7 +128,7 @@ def pick_folder(title: str = "Select Folder", hwnd: int = 0, start_dir: str = ""
             hr = GetDisplayName(pItem, SIGDN_FILESYSPATH, ctypes.byref(path_ptr))
             if hr == 0 and path_ptr and path_ptr.value:
                 path = path_ptr.value
-                _ole32.CoTaskMemFree(path_ptr)
+                ole32.CoTaskMemFree(path_ptr)
                 if os.path.isdir(path):
                     return path
             return None
