@@ -43,7 +43,7 @@ On **Linux and macOS**, this fork behaves identically to the original X-AnyLabel
 
 ## Acknowledgments
 
-The technical approach is based on **JetBrains JBR PR #497** — the same method JetBrains uses in their IDEs (IntelliJ, PyCharm, etc.) to show WSL files in native file dialogs. The fix addresses a known Windows API limitation ([microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079), open since 2021).
+The technical approach is based on [**JetBrains JBR PR #497**](https://github.com/JetBrains/JetBrainsRuntime/pull/497) — the same method JetBrains uses in their IDEs (IntelliJ, PyCharm, etc.) to show WSL files in native file dialogs. The fix addresses a known Windows API limitation ([microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079), open since 2021).
 
 ## Install
 
