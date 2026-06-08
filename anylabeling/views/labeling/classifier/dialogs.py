@@ -31,6 +31,7 @@ from anylabeling.views.labeling.classifier.utils import (
     load_flags_from_json,
 )
 from anylabeling.views.labeling.utils.theme import get_theme
+from anylabeling.views.labeling.utils.wsl import get_existing_directory
 
 
 class ExportPathDialog(QDialog):
@@ -121,7 +122,7 @@ class ExportPathDialog(QDialog):
         """
 
     def browse_path(self):
-        path = QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self, self.tr("Select Export Directory")
         )
         if path:

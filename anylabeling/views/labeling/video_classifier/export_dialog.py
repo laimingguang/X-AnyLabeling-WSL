@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .exporter import ExportConfig
+from anylabeling.views.labeling.utils.wsl import get_existing_directory
 from .icons import apply_button_icon, theme_icon_color
 from .style import (
     get_export_dialog_style,
@@ -152,7 +153,7 @@ class ExportDialog(QDialog):
         return spin
 
     def _browse_output(self):
-        path = QFileDialog.getExistingDirectory(
+        path = get_existing_directory(
             self,
             self.tr("Select output directory"),
             self.out_edit.text() or self._source_folder or os.getcwd(),

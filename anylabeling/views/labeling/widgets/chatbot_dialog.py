@@ -49,6 +49,7 @@ from anylabeling.views.labeling.chatbot import *
 from anylabeling.views.labeling.logger import logger
 from anylabeling.views.labeling.utils.general import open_url
 from anylabeling.views.labeling.utils.qt import new_icon, new_icon_path
+from anylabeling.views.labeling.utils.wsl import get_existing_directory
 from anylabeling.views.labeling.utils.theme import get_theme
 from anylabeling.views.labeling.widgets.model_dropdown_widget import (
     ModelDropdown,
@@ -1777,11 +1778,10 @@ class ChatbotDialog(QDialog):
                 return
 
             current_dir = os.path.dirname(self.parent().filename)
-            export_dir = QFileDialog.getExistingDirectory(
+            export_dir = get_existing_directory(
                 self,
                 self.tr("Select Export Directory"),
                 current_dir,
-                QFileDialog.Option.ShowDirsOnly,
             )
 
             if not export_dir:

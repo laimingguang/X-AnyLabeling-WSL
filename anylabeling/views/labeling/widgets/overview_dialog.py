@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from anylabeling.views.labeling.logger import logger
+from anylabeling.views.labeling.utils.wsl import get_existing_directory
 from anylabeling.views.labeling.utils.qt import new_icon_path
 from anylabeling.views.labeling.utils.style import (
     get_dialog_style,
@@ -422,8 +423,8 @@ class OverviewDialog(QtWidgets.QDialog):
         """
         Export the label and shape information to a CSV file.
         """
-        directory = QFileDialog.getExistingDirectory(
-            self, self.tr("Select Directory"), ""
+        directory = get_existing_directory(
+            self, self.tr("Select Directory")
         )
         if not directory:
             return
