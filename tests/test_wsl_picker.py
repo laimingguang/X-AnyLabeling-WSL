@@ -242,5 +242,25 @@ class TestPickFolderIntegration(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class TestNoStaleCalls(unittest.TestCase):
+    """Verify all getExistingDirectory calls have been replaced."""
+
+    def test_no_qfiledialog_getexistingdirectory(self):
+        src_dir = os.path.join(os.path.dirname(__file__), "..", "anylabeling")
+        stale = []
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if not f.endswith(".py"):
+                    continue
+                path = os.path.join(root, f)
+                if path.endswith("utils\\wsl.py") or path.endswith("utils/wsl.py"):
+                    continue
+                with open(path, encoding="utf-8") as fh:
+                    for lineno, line in enumerate(fh, 1):
+                        if "QFileDialog.getExistingDirectory(" in line:
+                            stale.append(f"{path}:{lineno}")
+        self.assertEqual(stale, [], f"Stale QFileDialog.getExistingDirectory calls:\n" + "\n".join(stale))
+
+
 if __name__ == "__main__":
     unittest.main()
