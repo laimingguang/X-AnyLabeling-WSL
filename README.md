@@ -30,20 +30,22 @@ The same approach is used by JetBrains across IntelliJ, PyCharm, and all other I
 
 ## Scope
 
-This affects 8 folder picker dialogs:
+All folder picker dialogs across the application now use the modern Windows native dialog. Previously, 8 dialogs used the native picker (but without WSL support), while 13 used Qt's custom dialog — creating an inconsistent look and feel. Now all 21 dialogs are unified under a single native implementation:
 
-| Dialog | Location |
-|--------|----------|
-| Open Folder / Change Output Dir / Compare View | Main labeling interface |
-| CSV Export Directory | Overview dialog |
-| Export Directory | AI Chat dialog |
-| Export Directory | Classifier dialog |
-| Output Directory | Video Classification dialog |
-| Dataset Directory (Classify tasks) | Training dialog |
+| Dialog | Location | Previously |
+|--------|----------|------------|
+| Open Folder / Change Output Dir / Compare View | Main labeling interface | Native |
+| CSV Export / AI Chat Export / Classifier Export / Video Cls Output | Various dialogs | Native |
+| Training Dataset (Classify tasks) | Training dialog | Native |
+| YOLO Import (all formats) | Upload dialog | **Qt custom** |
+| Export (all formats) | Export dialog | **Qt custom** |
+| Crop Save Directory | Crop dialog | **Qt custom** |
+
+The result: a consistent, modern, native dialog across the entire application — no visual fragmentation between Qt custom dialogs and Windows system dialogs.
 
 ## Non-WSL Users
 
-No behavioral change. Linux and macOS run the standard `QFileDialog.getExistingDirectory` — identical to upstream. Windows without WSL sees no visible difference in the dialog.
+No behavioral change, but you will see the modern Windows folder dialog everywhere instead of a mix of Qt custom and native dialogs. Linux and macOS run the standard `QFileDialog.getExistingDirectory` — identical to upstream. Windows without WSL also sees no behavioral difference.
 
 ## Install
 
