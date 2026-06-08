@@ -26,22 +26,21 @@ In short: you must choose between **good display quality** (Windows-native GUI) 
 
 ## Our Solution
 
-When WSL is detected on Windows, this fork transparently replaces native directory selection dialogs with a custom `WslDirectoryPicker(QDialog)` that bypasses the Windows Shell entirely — currently supporting Open Folder, Change Output Directory, Compare View, and Classification Dataset Directory selection:
+The root cause of the WSL folder picker problem is a Windows Shell API flag. Qt's `QFileDialog.getExistingDirectory` opens the native `IFileOpenDialog` with the `FOS_FORCEFILESYSTEM` flag set. This flag **hides the WSL Linux node** (`\\wsl.localhost`) from the dialog's navigation pane — a known Windows limitation ([microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079), [microsoft/WindowsAppSDK#6284](https://github.com/microsoft/WindowsAppSDK/issues/6284)).
+
+This fork uses the same fix as **JetBrains JBR PR #497**: it opens `IFileOpenDialog` directly via ctypes with `FOS_PICKFOLDERS` but **without** `FOS_FORCEFILESYSTEM`. The result is a fully native Windows folder dialog that shows the WSL Linux node:
 
 ![WSL/Windows selector](assets/wsl-select-dialog.png)
 
-For users without WSL (Linux, macOS, Windows without WSL installed), this fork behaves identically to upstream — the folder dialog detects WSL availability and falls back to the standard `QFileDialog` when absent. Zero behavioral difference.
-
-- **Distro enumeration** via `wsl -l -v`, decoded as UTF-16-LE with `errors="replace"` (the output encoding Windows actually uses, which standard detection misses).
-- **WSL version filtering**: only WSL2 distros are shown (`\\wsl.localhost` does not support WSL1). The version column from `wsl -l -v` is parsed and distros with version other than 2 are filtered out.
-- **User-distro filtering**: only distros with a non-empty `/home` directory are shown, with a secondary `"docker"` name check as a safeguard. This hides docker-desktop and other non-user environments.
-- **Lazy-loaded tree navigation** using Python's `os.listdir` directly — `os.listdir` works fine on `\\wsl.localhost\Ubuntu\home\...` even though the Windows Shell cannot navigate there. Each directory is loaded on first expansion and cached in a `_loaded` set.
-- **Robust error handling**: all `OSError` exceptions from `os.listdir` are caught (WinError 64 on the `\\wsl.localhost` root, permission errors on protected directories, etc.).
-- **No external dependencies**: the pure-logic layer (`utils/wsl.py`) imports only stdlib modules (`os`, `os.path`, `subprocess`). The Qt dialog layer in `label_widget.py` uses only PyQt6 widgets already present in the project.
+- **COM-level fix**: a lightweight ctypes wrapper calls `CoCreateInstance(CLSID_FileOpenDialog)`, strips `FOS_FORCEFILESYSTEM`, and shows the dialog via the standard `IFileOpenDialog::Show`.
+- **Drop-in replacement**: `get_existing_directory()` mirrors Qt's `QFileDialog.getExistingDirectory` signature. On Windows it calls the COM dialog; on non-Windows it delegates to Qt directly.
+- **No double dialogs**: if the user cancels the COM dialog, the function returns an empty string — no fallback, no second popup.
+- **8 call sites replaced**: all native (non-`DontUseNativeDialog`) folder pickers across the app use the new COM-aware helper — Open Folder, Change Output Directory, Compare View, CSV Export Directory, Chatbot Export, Classifier Export, Video Classification Export, and Training Dataset Directory.
+- **13 `DontUseNativeDialog` call sites unchanged**: these already used Qt's custom dialog (no `IFileOpenDialog` involved), so they never had the WSL problem.
+- **No external dependencies**: uses only Python stdlib (`ctypes`, `os`, `typing`) to call the Windows Shell API directly.
+- **Backward compatible**: identical behavior on Linux, macOS, and Windows without WSL.
 
 The result is seamless: **native Windows GUI quality + full WSL filesystem access**, zero configuration, no workarounds needed.
-
-![WslDirectoryPicker dialog](assets/wsl-directory-picker.png)
 
 ## Install
 

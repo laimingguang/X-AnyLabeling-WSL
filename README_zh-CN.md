@@ -26,22 +26,21 @@
 
 ## 解决方案
 
-检测到 Windows 上存在 WSL 时，本 fork 将系统目录选择对话框透明替换为自定义的 `WslDirectoryPicker(QDialog)`，彻底绕过 Windows Shell 层——目前已支持打开文件夹、更改输出目录、对比视图和分类数据集目录选择：
+WSL 文件夹选择器问题的根源是 Windows Shell API 的一个标志。Qt 的 `QFileDialog.getExistingDirectory` 在调用原生 `IFileOpenDialog` 时设置了 `FOS_FORCEFILESYSTEM` 标志。这个标志会**隐藏导航栏中的 WSL Linux 节点**（`\\wsl.localhost`）——这是 Windows 的已知限制（[microsoft/WSL#9079](https://github.com/microsoft/WSL/issues/9079)、[microsoft/WindowsAppSDK#6284](https://github.com/microsoft/WindowsAppSDK/issues/6284)）。
+
+本 fork 采用了与 **JetBrains JBR PR #497** 相同的修复方案：直接通过 ctypes 调用 `IFileOpenDialog`，使用 `FOS_PICKFOLDERS` 但**不加** `FOS_FORCEFILESYSTEM`。结果是一个完全原生的 Windows 文件夹对话框，能够正常显示 WSL Linux 节点：
 
 ![WSL/Windows 选择](assets/wsl-select-dialog.png)
 
-对于没有 WSL 的用户（Linux、macOS、未安装 WSL 的 Windows），本 fork 的行为与上游完全一致——文件对话框会检测 WSL 是否存在，不存在则回退为标准 `QFileDialog`，零行为差异。
-
-- **发行版枚举**：通过 `wsl -l -v` 获取列表（含版本号），以 UTF-16-LE 编码解码（`errors="replace"`）——这是 Windows 实际使用的输出编码，标准编码检测会遗漏。
-- **WSL 版本过滤**：仅显示 WSL2 发行版（`\\wsl.localhost` 不支持 WSL1）。解析 `wsl -l -v` 输出中的版本列，过滤掉非版本 2 的发行版。
-- **用户发行版过滤**：仅显示 `/home` 目录非空的发行版，辅以 `"docker"` 名称检查作为兜底。以此隐藏 docker-desktop 等非用户环境。
-- **延迟加载树形导航**：直接用 Python 的 `os.listdir` 遍历目录——`os.listdir` 在 `\\wsl.localhost\Ubuntu\home\...` 上完全正常，即使 Windows Shell 无法导航进去。每个目录在首次展开时加载，加载结果缓存在 `_loaded` 集合中。
-- **健壮的错误处理**：所有 `os.listdir` 抛出的 `OSError` 异常均被捕获（`\\wsl.localhost` 根目录的 WinError 64、保护目录的权限错误等）。
-- **零额外依赖**：纯逻辑层（`utils/wsl.py`）仅导入标准库模块（`os`、`os.path`、`subprocess`）；Qt 对话框层（`label_widget.py`）只使用项目中已有的 PyQt6 控件。
+- **COM 级别修复**：轻量级 ctypes 封装，调用 `CoCreateInstance(CLSID_FileOpenDialog)`，去掉 `FOS_FORCEFILESYSTEM`，通过标准 `IFileOpenDialog::Show` 显示对话框。
+- **即插即用替换**：`get_existing_directory()` 的签名与 Qt 的 `QFileDialog.getExistingDirectory` 一致。Windows 上调用 COM 对话框，非 Windows 上直接委托给 Qt。
+- **无重复弹窗**：用户取消 COM 对话框后返回空字符串，不弹第二个对话框。
+- **替换了 8 处调用点**：应用中所有原生（非 `DontUseNativeDialog`）文件夹选择器均已使用新的 COM 辅助函数——打开文件夹、更改输出目录、对比视图、CSV 导出目录、聊天机器人导出、分类器导出、视频分类导出和训练数据集目录。
+- **13 处 `DontUseNativeDialog` 调用点保持不变**：这些调用点原本就使用 Qt 自定义对话框（不涉及 `IFileOpenDialog`），因此从未出现 WSL 问题。
+- **零额外依赖**：仅使用 Python 标准库（`ctypes`、`os`、`typing`）直接调用 Windows Shell API。
+- **向后兼容**：在 Linux、macOS 和未安装 WSL 的 Windows 上行为一致。
 
 最终效果是无缝的：**Windows 原生界面品质 + 完整 WSL 文件系统访问**，零配置，无需任何变通方案。
-
-![WslDirectoryPicker 对话框](assets/wsl-directory-picker.png)
 
 ## 安装
 
