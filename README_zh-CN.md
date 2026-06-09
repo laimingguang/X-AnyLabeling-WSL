@@ -72,8 +72,4 @@ git rebase upstream/main
 
 ## 字体
 
-应用默认字体已切换为 **JetBrains Mono**，一款清晰易读的开发者字体，在标注标签、置信度分数和 UI 文本上有更出色的可读性。
-
-![JetBrains Mono 在 X-AnyLabeling 中的效果](assets/jetbrains-mono-font.png)
-
-仅需在 `app.py` 中添加一行代码即可实现字体切换——若系统中未安装该字体，Qt 会自动回退到系统默认字体。
+应用默认字体为 **JetBrains Mono 12pt**，提供清晰易读的界面文本。

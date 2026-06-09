@@ -72,8 +72,4 @@ git rebase upstream/main
 
 ## Font
 
-The application now defaults to **JetBrains Mono**, a clean, readable developer font with excellent legibility for annotation labels, confidence scores, and UI text.
-
-![JetBrains Mono in X-AnyLabeling](assets/jetbrains-mono-font.png)
-
-The font change is a single line in `app.py` — Qt falls back gracefully if the font is not installed on the system.
+The application defaults to **JetBrains Mono 12pt** for clean, readable UI text.

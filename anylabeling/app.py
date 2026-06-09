@@ -333,7 +333,7 @@ def main():
             )
 
     app = QtWidgets.QApplication(sys.argv)
-    app.setFont(QtGui.QFont("JetBrains Mono", 10))
+    app.setFont(QtGui.QFont("JetBrains Mono", 12))
     init_theme(config.get("theme", "light"))
     _dark_palette = get_dark_palette()
     if _dark_palette is not None:
